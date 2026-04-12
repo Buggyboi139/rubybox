@@ -17,9 +17,20 @@
 <option value="qwen/qwen-2.5-coder-32b-instruct">Qwen 2.5 Coder</option>
 <option value="mistralai/mistral-nemo">Mistral Nemo</option>
 </select>
+<textarea id="system-prompt" class="glass-input" placeholder="Define system directives..."></textarea>
 <div class="metrics">
-<span>Session Cost: </span><span id="cost-display">$0.0000</span>
+<span>Cost: </span><span id="cost-display">$0.0000</span>
 </div>
+<div class="file-action-group">
+<label for="char-upload" class="glass-btn file-label">Load Char Card</label>
+<input type="file" id="char-upload" accept=".json" class="hidden-input">
+<span id="char-name" class="status-text">None</span>
+</div>
+<div class="file-action-group">
+<label for="import-upload" class="glass-btn file-label">Import State</label>
+<input type="file" id="import-upload" accept=".json" class="hidden-input">
+</div>
+<button id="export-btn" class="glass-btn">Save State to JSON</button>
 <button id="compress-btn" class="glass-btn">Force Compression</button>
 <button id="clear-btn" class="glass-btn">Purge Memory</button>
 </aside>
