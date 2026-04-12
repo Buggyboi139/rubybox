@@ -10,6 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/bundle.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -31,8 +33,9 @@
         <div style="flex: 1; overflow-y: auto; margin-bottom: 10px; display: flex; flex-direction: column; min-height: 0;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <h3 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Recent Chats</h3>
-                <button id="new-chat-btn" class="secondary-btn" style="padding: 4px 8px; font-size: 0.75rem;">+ New</button>
+                <button id="new-chat-btn" class="secondary-btn" style="padding: 4px 8px; font-size: 0.75rem; width: auto;">+ New</button>
             </div>
+            <input type="text" id="chat-search" class="glass-input" placeholder="Search chats..." style="margin-bottom: 10px; font-size: 0.85rem !important; padding: 8px;">
             <div id="conversations-list" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1;"></div>
         </div>
 
@@ -72,6 +75,10 @@
                         <option value="deepseek/deepseek-r1">DeepSeek R1</option>
                     </optgroup>
                 </select>
+                <select id="voice-mode" class="glass-input" style="margin-bottom: 15px; font-size: 0.9rem !important; padding: 10px;">
+                    <option value="local" selected>Voice: Local (Transformers)</option>
+                    <option value="native">Voice: Native (Browser API)</option>
+                </select>
                 <div class="slider-group">
                     <label for="temp-slider">Temperature: <span id="temp-val">0.7</span></label>
                     <input type="range" id="temp-slider" min="0" max="2" step="0.1" value="0.7">
@@ -85,6 +92,9 @@
     </aside>
 
     <main id="chat-wrapper">
+        <div style="position: absolute; top: 15px; right: 20px; z-index: 100;">
+            <button id="export-chat-btn" class="secondary-btn" style="padding: 6px 12px; font-size: 0.8rem; width: auto; background: rgba(30, 15, 20, 0.6); backdrop-filter: blur(10px);">Export Chat</button>
+        </div>
         <div id="chat-log"></div>
         <div class="control-panel">
             <button id="attach-img-btn" class="control-btn">📎</button>
@@ -95,7 +105,10 @@
                 <button id="clear-img-btn">&times;</button>
             </div>
             
-            <textarea id="prompt" class="glass-input" placeholder="Message..."></textarea>
+            <div style="flex: 1; position: relative;">
+                <textarea id="prompt" class="glass-input" placeholder="Message..."></textarea>
+                <div id="token-counter" style="position: absolute; bottom: -20px; right: 5px; font-size: 0.7rem; color: var(--text-muted);">~0 tokens</div>
+            </div>
             
             <div style="display: flex; gap: 5px;">
                 <button id="mic-btn" class="control-btn">🎤</button>
@@ -164,6 +177,8 @@
             </div>
         </div>
     </div>
+    
+    <div id="toast-container"></div>
     
     <script src="supabase-client.js"></script>
     <script src="voice.js"></script>
