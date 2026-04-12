@@ -4,7 +4,11 @@ window.App.handleTranscriptionSubmit = function(text) {
 };
 
 window.App.setupEventListeners = function() {
-    window.App.UI.chatLog.addEventListener('scroll', () => { window.App.isAutoScrolling = window.App.UI.chatLog.scrollHeight - window.App.UI.chatLog.scrollTop - window.App.UI.chatLog.clientHeight < 50; });
+    window.App.UI.chatLog.addEventListener('scroll', () => { 
+        const diff = window.App.UI.chatLog.scrollHeight - window.App.UI.chatLog.scrollTop - window.App.UI.chatLog.clientHeight;
+        window.App.isAutoScrolling = diff < 10; 
+    });
+    
     window.App.UI.menuBtn.addEventListener('click', () => {
         if(window.innerWidth > 768) {
             let isSidebarHidden = window.App.UI.sidebar.classList.contains('hidden-sidebar');
@@ -27,6 +31,8 @@ window.App.setupEventListeners = function() {
     window.App.UI.tempSlider.addEventListener('input', (e) => { window.App.UI.tempVal.textContent = e.target.value; window.App.saveUserSettings(); });
     window.App.UI.ctxSlider.addEventListener('input', (e) => { window.App.UI.ctxVal.textContent = e.target.value; window.App.saveUserSettings(); });
     window.App.UI.model.addEventListener('change', window.App.saveUserSettings);
+    window.App.UI.voiceMode.addEventListener('change', window.App.saveUserSettings);
+    window.App.UI.chatSearch.addEventListener('input', window.App.loadConversations);
 
     window.App.UI.attachImgBtn.addEventListener('click', () => window.App.UI.imageUpload.click());
     window.App.UI.imageUpload.addEventListener('change', (e) => {
@@ -72,12 +78,16 @@ window.App.setupEventListeners = function() {
     });
 
     window.App.UI.micBtn.addEventListener('click', () => {
-        if (!window.App.user) return alert("Please sign in first.");
+        if (!window.App.user) {
+            window.App.showToast("Please sign in first.", "error");
+            return;
+        }
         window.App.UI.voiceSheet.classList.remove('hidden');
         setTimeout(() => window.App.UI.voiceSheet.classList.add('show'), 10);
         VoiceManager.startListening();
     });
 
+    window.App.UI.exportBtn.addEventListener('click', window.App.exportChat);
     window.App.UI.sendBtn.addEventListener('click', () => window.App.execute(false));
     window.App.UI.stopBtn.addEventListener('click', () => { if(window.App.controller) window.App.controller.abort(); VoiceManager.stopAll(); });
     
@@ -88,20 +98,29 @@ window.App.setupEventListeners = function() {
     window.App.UI.clearCharBtn.addEventListener('click', () => { window.App.state.activeCharacter = null; window.App.renderActiveCharacter(); });
 
     window.App.UI.saveCharBtn.addEventListener('click', async () => {
-        if (!window.App.user) return alert("Please sign in first.");
+        if (!window.App.user) {
+            window.App.showToast("Please sign in first.", "error");
+            return;
+        }
         const name = window.App.UI.newCharName.value.trim();
         const avatar = window.App.newCharAvatarBase64 || '';
         const prompt = window.App.UI.newCharPrompt.value.trim();
         if (name && prompt && window.App.user) {
             const { error } = await window.supabaseClient.from('characters').insert([{ user_id: window.App.user.id, name, avatar, system_prompt: prompt }]);
-            if (error) return console.error(error);
+            if (error) return window.App.showToast(error.message, "error");
             window.App.UI.newCharName.value = ""; window.App.UI.newCharPrompt.value = ""; window.App.newCharAvatarBase64 = null;
             window.App.UI.newCharAvatarPreview.style.display = 'none'; window.App.UI.newCharAvatarPreview.src = '';
             window.App.loadCharacters();
+            window.App.showToast("Persona saved");
         }
     });
 
-    window.App.UI.prompt.addEventListener('input', function() { this.style.height = '50px'; this.style.height = (this.scrollHeight) + 'px'; });
+    window.App.UI.prompt.addEventListener('input', function() { 
+        this.style.height = '50px'; 
+        this.style.height = (this.scrollHeight) + 'px'; 
+        const tokenEstimate = Math.ceil(this.value.length / 4);
+        window.App.UI.tokenCounter.innerText = `~${tokenEstimate} tokens`;
+    });
     window.App.UI.prompt.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window.App.execute(false); } });
 };
 
