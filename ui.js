@@ -1,3 +1,26 @@
+window.App.showToast = function(msg, type='info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerText = msg;
+    container.appendChild(toast);
+    requestAnimationFrame(() => {
+        toast.classList.add('show');
+    });
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+};
+
+window.App.renderSkeleton = function() {
+    window.App.UI.chatLog.innerHTML = `
+        <div style="display:flex; justify-content:flex-end;"><div class="skeleton-msg user"></div></div>
+        <div style="display:flex;"><div class="skeleton-msg"></div></div>
+        <div style="display:flex; justify-content:flex-end;"><div class="skeleton-msg user"></div></div>
+    `;
+};
+
 window.App.renderCharacters = function() {
     window.App.UI.charList.innerHTML = "";
     window.App.state.characters.forEach((c) => {
@@ -91,37 +114,79 @@ window.App.addMessage = function(role, content, streaming = false, msgId = null)
             const copyBtn = document.createElement('button');
             copyBtn.className = 'action-btn';
             copyBtn.innerText = 'Copy';
-            copyBtn.onclick = () => { navigator.clipboard.writeText(window.App.extractTextFromContent(content)); };
+            copyBtn.onclick = () => {
+                navigator.clipboard.writeText(window.App.extractTextFromContent(content));
+                window.App.showToast('Copied to clipboard');
+            };
             actions.appendChild(copyBtn);
 
             if (role === 'user') {
                 const branchBtn = document.createElement('button');
                 branchBtn.className = 'action-btn';
                 branchBtn.innerText = 'Branch';
-                branchBtn.onclick = async () => {
-                    const newPromptText = prompt("Enter new prompt for this branch:");
-                    if (!newPromptText) return;
-                    const domNodes = Array.from(window.App.UI.chatLog.children);
-                    const domIndex = domNodes.indexOf(container);
-                    const historyToKeep = window.App.state.history.slice(0, domIndex);
+                branchBtn.onclick = () => {
+                    const originalText = window.App.extractTextFromContent(content);
+                    const editContainer = document.createElement('div');
+                    editContainer.className = 'inline-edit-container';
+                    
+                    const ta = document.createElement('textarea');
+                    ta.className = 'glass-input';
+                    ta.value = originalText;
+                    
+                    const btnRow = document.createElement('div');
+                    btnRow.className = 'action-row';
+                    
+                    const submitBtn = document.createElement('button');
+                    submitBtn.className = 'primary-btn';
+                    submitBtn.style.width = 'auto';
+                    submitBtn.style.padding = '8px 16px';
+                    submitBtn.style.marginTop = '0';
+                    submitBtn.innerText = 'Submit';
+                    
+                    const cancelBtn = document.createElement('button');
+                    cancelBtn.className = 'secondary-btn';
+                    cancelBtn.style.width = 'auto';
+                    cancelBtn.style.padding = '8px 16px';
+                    cancelBtn.innerText = 'Cancel';
+                    
+                    btnRow.appendChild(cancelBtn);
+                    btnRow.appendChild(submitBtn);
+                    editContainer.appendChild(ta);
+                    editContainer.appendChild(btnRow);
+                    
+                    msgDiv.replaceChild(editContainer, inner);
+                    actions.style.display = 'none';
 
-                    const { data: convData } = await window.supabaseClient.from('conversations').insert([{ user_id: window.App.user.id, title: 'Branched Chat' }]).select().single();
-                    if (!convData) return;
-                    window.App.currentConversationId = convData.id;
-                    window.App.state.history = [];
-                    window.App.UI.chatLog.innerHTML = "";
+                    cancelBtn.onclick = () => {
+                        msgDiv.replaceChild(inner, editContainer);
+                        actions.style.display = 'flex';
+                    };
 
-                    for (const oldMsg of historyToKeep) {
-                        const dbContent = typeof oldMsg.content === 'string' ? oldMsg.content : JSON.stringify(oldMsg.content);
-                        const { data: msgData } = await window.supabaseClient.from('messages').insert([{ conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: oldMsg.role, content: dbContent }]).select().single();
-                        if (msgData) {
-                            window.App.state.history.push({ role: oldMsg.role, content: oldMsg.content, id: msgData.id });
-                            window.App.addMessage(oldMsg.role, oldMsg.content, false, msgData.id);
+                    submitBtn.onclick = async () => {
+                        const newPromptText = ta.value.trim();
+                        if (!newPromptText) return;
+                        const domNodes = Array.from(window.App.UI.chatLog.children);
+                        const domIndex = domNodes.indexOf(container);
+                        const historyToKeep = window.App.state.history.slice(0, domIndex);
+
+                        const { data: convData } = await window.supabaseClient.from('conversations').insert([{ user_id: window.App.user.id, title: 'Branched Chat' }]).select().single();
+                        if (!convData) return;
+                        window.App.currentConversationId = convData.id;
+                        window.App.state.history = [];
+                        window.App.UI.chatLog.innerHTML = "";
+
+                        for (const oldMsg of historyToKeep) {
+                            const dbContent = typeof oldMsg.content === 'string' ? oldMsg.content : JSON.stringify(oldMsg.content);
+                            const { data: msgData } = await window.supabaseClient.from('messages').insert([{ conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: oldMsg.role, content: dbContent }]).select().single();
+                            if (msgData) {
+                                window.App.state.history.push({ role: oldMsg.role, content: oldMsg.content, id: msgData.id });
+                                window.App.addMessage(oldMsg.role, oldMsg.content, false, msgData.id);
+                            }
                         }
-                    }
-                    window.App.UI.prompt.value = newPromptText;
-                    window.App.loadConversations();
-                    window.App.execute();
+                        window.App.UI.prompt.value = newPromptText;
+                        window.App.loadConversations();
+                        window.App.execute();
+                    };
                 };
                 actions.appendChild(branchBtn);
 
