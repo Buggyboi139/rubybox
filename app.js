@@ -20,8 +20,17 @@ const UI = {
     charList: document.getElementById('char-list'),
     newCharName: document.getElementById('newCharName'),
     newCharPrompt: document.getElementById('newCharPrompt'),
-    saveCharBtn: document.getElementById('saveCharBtn')
+    saveCharBtn: document.getElementById('saveCharBtn'),
+    downloadBtn: document.getElementById('download-btn')
 };
+
+marked.setOptions({
+    highlight: function(code, lang) {
+        const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+        return hljs.highlight(code, { language }).value;
+    },
+    langPrefix: 'hljs language-'
+});
 
 let controller = null;
 let state = JSON.parse(localStorage.getItem('rb_glass_state')) || {
@@ -54,14 +63,27 @@ function renderHistory() {
 
 function renderCharacters() {
     UI.charList.innerHTML = "";
-    state.characters.forEach((c) => {
+    state.characters.forEach((c, index) => {
         const div = document.createElement('div');
         div.className = 'char-card';
-        div.innerHTML = `<div class="char-title">${DOMPurify.sanitize(c.name)}</div><div class="char-preview">${DOMPurify.sanitize(c.prompt)}</div>`;
-        div.addEventListener('click', () => {
+        div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="char-title">${DOMPurify.sanitize(c.name)}</div>
+                <button class="char-del" data-index="${index}">×</button>
+            </div>
+            <div class="char-preview">${DOMPurify.sanitize(c.prompt)}</div>
+        `;
+        div.addEventListener('click', (e) => {
+            if (e.target.classList.contains('char-del')) return;
             UI.sysPrompt.value = c.prompt;
             save();
             UI.charModal.classList.remove('show');
+        });
+        div.querySelector('.char-del').addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.characters.splice(index, 1);
+            save();
+            renderCharacters();
         });
         UI.charList.appendChild(div);
     });
@@ -75,20 +97,31 @@ function addMessage(role, content, streaming = false) {
         if (streaming) div.id = 'streaming-box';
         const inner = document.createElement('div');
         inner.className = 'content';
+        if (!streaming && role !== 'system') {
+            const del = document.createElement('button');
+            del.className = 'msg-del-btn';
+            del.innerHTML = '×';
+            del.onclick = () => {
+                const index = Array.from(UI.chatLog.children).indexOf(div);
+                state.history.splice(index, 1);
+                div.remove();
+                save();
+            };
+            div.appendChild(del);
+        }
         div.appendChild(inner);
         UI.chatLog.appendChild(div);
     }
     const target = div.querySelector('.content');
     target.innerHTML = DOMPurify.sanitize(marked.parse(content));
-    UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
+    UI.chatLog.scrollTo({ top: UI.chatLog.scrollHeight, behavior: 'smooth' });
     return target;
 }
 
 async function healMemory() {
     if (state.history.length < 5) return;
-    UI.status.textContent = "HEALING...";
-    const summaryPrompt = `CRITICAL TASK: Summarize the conversation so far. Extract: 1. Completed tasks 2. Pending goals 3. Technical constraints. Update the 'Self-Healing Memory' block.`;
-    
+    UI.status.textContent = "HEALING";
+    const summaryPrompt = `CRITICAL: Summarize the conversation. Extract: 1. Completed tasks 2. Pending goals 3. Technical constraints.`;
     try {
         const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
@@ -98,23 +131,17 @@ async function healMemory() {
             },
             body: JSON.stringify({
                 model: UI.model.value,
-                messages: [
-                    { role: "system", content: "You are a context compression engine." },
-                    ...state.history,
-                    { role: "user", content: summaryPrompt }
-                ]
+                messages: [...state.history, { role: "user", content: summaryPrompt }]
             })
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (data.choices) {
+        if (res.ok) {
+            const data = await res.json();
             UI.persistMem.value = data.choices[0].message.content;
             state.history = state.history.slice(-4);
             save();
             renderHistory();
         }
-    } catch (e) {
-    } finally {
+    } catch (e) {} finally {
         UI.status.textContent = "READY";
     }
 }
@@ -122,21 +149,20 @@ async function healMemory() {
 async function execute() {
     const input = UI.prompt.value.trim();
     if (!input && state.history.length === 0) return;
-
     if (input) {
         state.history.push({ role: 'user', content: input });
         addMessage('user', input);
         UI.prompt.value = "";
+        UI.prompt.style.height = '60px';
     }
-
     controller = new AbortController();
     UI.stopBtn.classList.remove('hidden');
     UI.sendBtn.classList.add('hidden');
-    UI.status.textContent = "EXECUTING";
-
-    const systemWithMemory = `${UI.sysPrompt.value}\n\n[PERSISTENT_MEMORY]\n${UI.persistMem.value}`;
-    const messages = [{ role: "system", content: systemWithMemory }, ...state.history];
-
+    UI.status.textContent = "THINKING";
+    const messages = [
+        { role: "system", content: `${UI.sysPrompt.value}\n\n[MEMORY]\n${UI.persistMem.value}` },
+        ...state.history
+    ];
     try {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
@@ -151,42 +177,32 @@ async function execute() {
                 stream: true
             })
         });
-
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let fullText = "";
         let buffer = "";
         const box = addMessage('ai', "", true);
-
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
             buffer = lines.pop();
-            
             for (const line of lines) {
-                if (line.startsWith("data: ")) {
-                    if (line.includes("[DONE]")) continue;
-                    try {
-                        const data = JSON.parse(line.slice(6));
-                        const delta = data.choices[0].delta.content || "";
-                        fullText += delta;
-                        box.innerHTML = DOMPurify.sanitize(marked.parse(fullText));
-                        UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
-                    } catch (e) {}
-                }
+                const cleanLine = line.replace(/^data: /, "").trim();
+                if (!cleanLine || cleanLine === "[DONE]") continue;
+                try {
+                    const data = JSON.parse(cleanLine);
+                    const delta = data.choices[0].delta.content || "";
+                    fullText += delta;
+                    box.innerHTML = DOMPurify.sanitize(marked.parse(fullText));
+                    UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
+                } catch (e) {}
             }
         }
-
-        const finalId = document.getElementById('streaming-box');
-        if (finalId) finalId.id = "";
+        document.getElementById('streaming-box').id = "";
         state.history.push({ role: 'assistant', content: fullText });
-        
         if (state.history.length > 20) await healMemory();
-
     } catch (e) {
         if (e.name !== 'AbortError') addMessage('system', `ERROR: ${e.message}`);
     } finally {
@@ -198,32 +214,28 @@ async function execute() {
     }
 }
 
-const toggleMenu = () => {
-    UI.sidebar.classList.toggle('show');
-    UI.overlay.classList.toggle('show');
-};
-
 UI.sendBtn.addEventListener('click', execute);
 UI.stopBtn.addEventListener('click', () => controller?.abort());
-UI.menuBtn.addEventListener('click', toggleMenu);
-UI.overlay.addEventListener('click', toggleMenu);
-
+UI.menuBtn.addEventListener('click', () => {
+    UI.sidebar.classList.toggle('show');
+    UI.overlay.classList.toggle('show');
+});
+UI.overlay.addEventListener('click', () => {
+    UI.sidebar.classList.remove('show');
+    UI.overlay.classList.remove('show');
+});
 UI.clearBtn.addEventListener('click', () => {
     state.history = [];
     UI.chatLog.innerHTML = "";
     save();
 });
-
 UI.compressBtn.addEventListener('click', healMemory);
-
 UI.charsBtn.addEventListener('click', () => {
     UI.sidebar.classList.remove('show');
     UI.overlay.classList.remove('show');
     UI.charModal.classList.add('show');
 });
-
 UI.closeCharModal.addEventListener('click', () => UI.charModal.classList.remove('show'));
-
 UI.saveCharBtn.addEventListener('click', () => {
     const name = UI.newCharName.value.trim();
     const prompt = UI.newCharPrompt.value.trim();
@@ -235,7 +247,18 @@ UI.saveCharBtn.addEventListener('click', () => {
         UI.newCharPrompt.value = "";
     }
 });
-
+UI.downloadBtn.addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(state.history, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rubybox-${Date.now()}.json`;
+    a.click();
+});
+UI.prompt.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = (this.scrollHeight) + 'px';
+});
 UI.prompt.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
