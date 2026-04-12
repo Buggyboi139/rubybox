@@ -25,10 +25,10 @@
     </header>
 
     <aside id="sidebar" class="side-menu">
-        <button id="mobile-sidebar-close" class="close-btn" style="display: none;">&times;</button>
+        <button id="mobile-sidebar-close" style="display: none;">&times;</button>
         <div class="logo-container"><span class="logo-text">RubyBox</span></div>
         
-        <div id="auth-panel" style="margin-bottom: 15px;">
+        <div id="auth-panel" style="margin-bottom: 15px; flex-shrink: 0;">
             <button id="login-btn" class="primary-btn" style="padding: 10px;">Sign In</button>
             <div id="user-info" class="hidden" style="text-align: center; color: #ffb6c1; font-weight: 600; font-size: 0.9rem;">
                 <span id="user-email-display"></span>
@@ -36,16 +36,16 @@
             </div>
         </div>
 
-        <div style="flex: 1; overflow-y: auto; margin-bottom: 10px; display: flex; flex-direction: column; min-height: 0;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div style="flex: 1 1 auto; overflow-y: auto; margin-bottom: 10px; display: flex; flex-direction: column; min-height: 250px; border: 1px solid var(--border-glass); padding: 10px; border-radius: 12px; background: rgba(0,0,0,0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-shrink: 0;">
                 <h3 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Recent Chats</h3>
-                <button id="new-chat-btn" class="secondary-btn" style="padding: 4px 8px; font-size: 0.75rem; width: auto;">+ New</button>
+                <button id="new-chat-btn" class="secondary-btn" style="padding: 4px 8px; font-size: 0.75rem; width: auto; margin: 0;">+ New</button>
             </div>
-            <input type="text" id="chat-search" class="glass-input" placeholder="Search chats..." style="margin-bottom: 10px; font-size: 0.85rem !important; padding: 8px;">
+            <input type="text" id="chat-search" class="glass-input" placeholder="Search chats..." style="margin-bottom: 10px; font-size: 0.85rem !important; padding: 8px; flex-shrink: 0;">
             <div id="conversations-list" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1;"></div>
         </div>
 
-        <div id="active-char-display" class="hidden">
+        <div id="active-char-display" class="hidden" style="flex-shrink: 0;">
             <img id="active-char-img" src="" alt="">
             <div style="flex: 1; display: flex; flex-direction: column;">
                 <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Talking to</span>
@@ -54,47 +54,49 @@
             <button id="clear-char-btn">&times;</button>
         </div>
         
-        <button id="profile-btn" class="secondary-btn" style="margin-bottom: 10px;">Profile & Memory</button>
-        <button id="chars-btn" class="secondary-btn" style="margin-bottom: 15px;">Assistant Personas</button>
+        <div style="flex-shrink: 0;">
+            <button id="profile-btn" class="secondary-btn" style="margin-bottom: 10px;">Profile & Memory</button>
+            <button id="chars-btn" class="secondary-btn" style="margin-bottom: 15px;">Assistant Personas</button>
 
-        <details class="settings-panel" style="margin-bottom: 0;">
-            <summary style="color: #ffb6c1; cursor: pointer; font-weight: 600; font-size: 0.9rem; outline: none; padding: 5px 0;">Settings & API</summary>
-            <div style="margin-top: 15px;">
-                <input type="password" id="api-key" placeholder="OpenRouter Key" class="glass-input" style="margin-bottom: 15px;">
-                <select id="model-select" class="glass-input" style="margin-bottom: 15px; font-size: 0.9rem !important; padding: 10px;">
-                    <optgroup label="Anthropic">
-                        <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-                        <option value="anthropic/claude-3-opus">Claude 3 Opus</option>
-                        <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
-                    </optgroup>
-                    <optgroup label="Google">
-                        <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
-                        <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
-                        <option value="google/gemini-pro-1.5">Gemini 1.5 Pro</option>
-                    </optgroup>
-                    <optgroup label="OpenAI">
-                        <option value="openai/gpt-4o">GPT-4o</option>
-                        <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
-                    </optgroup>
-                    <optgroup label="DeepSeek">
-                        <option value="deepseek/deepseek-chat" selected>DeepSeek V3</option>
-                        <option value="deepseek/deepseek-r1">DeepSeek R1</option>
-                    </optgroup>
-                </select>
-                <select id="voice-mode" class="glass-input" style="margin-bottom: 15px; font-size: 0.9rem !important; padding: 10px;">
-                    <option value="local" selected>Voice: Local (Transformers)</option>
-                    <option value="native">Voice: Native (Browser API)</option>
-                </select>
-                <div class="slider-group">
-                    <label for="temp-slider">Temperature: <span id="temp-val">0.7</span></label>
-                    <input type="range" id="temp-slider" min="0" max="2" step="0.1" value="0.7">
+            <details class="settings-panel" style="margin-bottom: 0;">
+                <summary style="color: #ffb6c1; cursor: pointer; font-weight: 600; font-size: 0.9rem; outline: none; padding: 5px 0;">Settings & API</summary>
+                <div style="margin-top: 15px;">
+                    <input type="password" id="api-key" placeholder="OpenRouter Key" class="glass-input" style="margin-bottom: 15px;">
+                    <select id="model-select" class="glass-input" style="margin-bottom: 15px; font-size: 0.9rem !important; padding: 10px;">
+                        <optgroup label="Anthropic">
+                            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                            <option value="anthropic/claude-3-opus">Claude 3 Opus</option>
+                            <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
+                        </optgroup>
+                        <optgroup label="Google">
+                            <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
+                            <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
+                            <option value="google/gemini-pro-1.5">Gemini 1.5 Pro</option>
+                        </optgroup>
+                        <optgroup label="OpenAI">
+                            <option value="openai/gpt-4o">GPT-4o</option>
+                            <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                        </optgroup>
+                        <optgroup label="DeepSeek">
+                            <option value="deepseek/deepseek-chat" selected>DeepSeek V3</option>
+                            <option value="deepseek/deepseek-r1">DeepSeek R1</option>
+                        </optgroup>
+                    </select>
+                    <select id="voice-mode" class="glass-input" style="margin-bottom: 15px; font-size: 0.9rem !important; padding: 10px;">
+                        <option value="local" selected>Voice: Local (Transformers)</option>
+                        <option value="native">Voice: Native (Browser API)</option>
+                    </select>
+                    <div class="slider-group">
+                        <label for="temp-slider">Temperature: <span id="temp-val">0.7</span></label>
+                        <input type="range" id="temp-slider" min="0" max="2" step="0.1" value="0.7">
+                    </div>
+                    <div class="slider-group">
+                        <label for="ctx-slider">Context Memory: <span id="ctx-val">10</span></label>
+                        <input type="range" id="ctx-slider" min="2" max="50" step="2" value="10">
+                    </div>
                 </div>
-                <div class="slider-group">
-                    <label for="ctx-slider">Context Memory: <span id="ctx-val">10</span></label>
-                    <input type="range" id="ctx-slider" min="2" max="50" step="2" value="10">
-                </div>
-            </div>
-        </details>
+            </details>
+        </div>
     </aside>
 
     <main id="chat-wrapper">
