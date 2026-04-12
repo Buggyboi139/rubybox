@@ -14,6 +14,7 @@ const VoiceManager = (() => {
     
     let sttWorker = null;
     let isGenerating = false;
+    let currentSessionId = 0;
     
     let onTranscription = null;
     let onStateChange = null;
@@ -46,9 +47,9 @@ const VoiceManager = (() => {
             try {
                 const speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
                 const out = await tts(e.data.text, { speaker_embeddings });
-                self.postMessage({ type: 'audio', buffer: out.audio, sampleRate: out.sampling_rate });
+                self.postMessage({ type: 'audio', buffer: out.audio, sampleRate: out.sampling_rate, sessionId: e.data.sessionId });
             } catch (err) {
-                self.postMessage({ type: 'audio_error' });
+                self.postMessage({ type: 'audio_error', sessionId: e.data.sessionId });
             }
         }
     };
@@ -57,6 +58,19 @@ const VoiceManager = (() => {
     function changeState(newState) {
         currentState = newState;
         if(onStateChange) onStateChange(currentState);
+    }
+
+    function trimSilence(bufferData, sampleRate) {
+        let start = 0;
+        let end = bufferData.length - 1;
+        const threshold = 0.01;
+        while (start < bufferData.length && Math.abs(bufferData[start]) < threshold) start++;
+        while (end > 0 && Math.abs(bufferData[end]) < threshold) end--;
+        if (start >= end) return bufferData;
+        const padding = Math.floor(sampleRate * 0.05);
+        start = Math.max(0, start - padding);
+        end = Math.min(bufferData.length - 1, end + padding);
+        return bufferData.slice(start, end + 1);
     }
 
     function init(transcriptionCallback, stateCallback) {
@@ -79,10 +93,13 @@ const VoiceManager = (() => {
                 if(onTranscription) onTranscription(e.data.text);
                 changeState('thinking');
             } else if (e.data.type === 'audio') {
+                if (e.data.sessionId !== currentSessionId) return;
                 isGenerating = false;
-                scheduleAudio(e.data.buffer, e.data.sampleRate);
+                const trimmed = trimSilence(e.data.buffer, e.data.sampleRate);
+                scheduleAudio(trimmed, e.data.sampleRate);
                 processQueue();
             } else if (e.data.type === 'audio_error') {
+                if (e.data.sessionId !== currentSessionId) return;
                 isGenerating = false;
                 processQueue();
             }
@@ -107,6 +124,7 @@ const VoiceManager = (() => {
     }
 
     async function startListening() {
+        currentSessionId++;
         if (!globalAudioContext) {
             globalAudioContext = new AudioContext({ sampleRate: 16000 });
             globalAnalyser = globalAudioContext.createAnalyser();
@@ -174,15 +192,24 @@ const VoiceManager = (() => {
     function receiveDelta(delta) {
         sentenceBuffer += delta;
         let cleaned = sentenceBuffer.replace(/[*#~`]/g, '').replace(/\[.*?\]\(.*?\)/g, '');
-        let match = cleaned.match(/([.!?])\s+/);
-        if (match) {
-            let index = match.index + 1;
-            let sentence = cleaned.substring(0, index);
-            let isAbbrev = /(Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St|vs|etc|ie|eg)\.$/i.test(sentence.trim());
-            if (!isAbbrev && sentence.trim().length > 2) {
-                queueText(sentence.trim());
-                sentenceBuffer = cleaned.substring(index).trim();
+        let parts = cleaned.split(/([.!?]["']?\s+)/);
+        
+        if (parts.length > 1) {
+            sentenceBuffer = parts.pop();
+            let currentSentence = "";
+            for (let i = 0; i < parts.length; i++) {
+                currentSentence += parts[i];
+                if (i % 2 === 1) {
+                    let isAbbrev = /(Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St|vs|etc|ie|eg)[.!?]["']?\s+$/i.test(currentSentence);
+                    if (!isAbbrev) {
+                        if (currentSentence.trim().length > 1) queueText(currentSentence.trim());
+                        currentSentence = "";
+                    }
+                }
             }
+            sentenceBuffer = currentSentence + sentenceBuffer;
+        } else {
+            sentenceBuffer = cleaned;
         }
     }
 
@@ -201,7 +228,7 @@ const VoiceManager = (() => {
         if (isGenerating || ttsQueue.length === 0) return;
         isGenerating = true;
         const text = ttsQueue.shift();
-        sttWorker.postMessage({ type: 'speak', text });
+        sttWorker.postMessage({ type: 'speak', text, sessionId: currentSessionId });
     }
 
     function scheduleAudio(bufferData, sampleRate) {
@@ -214,7 +241,7 @@ const VoiceManager = (() => {
         source.connect(globalAnalyser);
 
         const currentTime = globalAudioContext.currentTime;
-        if (nextStartTime < currentTime) nextStartTime = currentTime;
+        if (nextStartTime < currentTime) nextStartTime = currentTime + 0.05;
         
         source.start(nextStartTime);
         activeSources.push(source);
@@ -232,6 +259,7 @@ const VoiceManager = (() => {
     }
 
     function interruptAndListen(skipStart = false) {
+        currentSessionId++;
         activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
         activeSources = [];
         ttsQueue = [];
@@ -241,7 +269,19 @@ const VoiceManager = (() => {
         if(!skipStart) startListening();
     }
 
+    function stopPlayback() {
+        currentSessionId++;
+        activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
+        activeSources = [];
+        ttsQueue = [];
+        sentenceBuffer = "";
+        isGenerating = false;
+        nextStartTime = 0;
+        changeState('idle');
+    }
+
     function stopAll() {
+        currentSessionId++;
         activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
         activeSources = [];
         ttsQueue = [];
@@ -307,5 +347,5 @@ const VoiceManager = (() => {
         }
     }
 
-    return { init, startListening, receiveDelta, commitBuffer, interruptAndListen, stopAll, getState: () => currentState };
+    return { init, startListening, receiveDelta, commitBuffer, interruptAndListen, stopPlayback, stopAll, getState: () => currentState };
 })();
