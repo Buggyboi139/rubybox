@@ -38,12 +38,15 @@
 
         <div id="active-char-display" class="hidden">
             <img id="active-char-img" src="" alt="">
-            <div id="active-char-name"></div>
+            <div style="flex: 1; display: flex; flex-direction: column;">
+                <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Talking to</span>
+                <div id="active-char-name"></div>
+            </div>
             <button id="clear-char-btn">&times;</button>
         </div>
         
         <button id="profile-btn" class="secondary-btn" style="margin-bottom: 10px;">Profile & Memory</button>
-        <button id="chars-btn" class="secondary-btn" style="margin-bottom: 15px;">Characters Vault</button>
+        <button id="chars-btn" class="secondary-btn" style="margin-bottom: 15px;">Assistant Personas</button>
 
         <details class="settings-panel" style="margin-bottom: 0;">
             <summary style="color: #ffb6c1; cursor: pointer; font-weight: 600; font-size: 0.9rem; outline: none; padding: 5px 0;">Settings & API</summary>
@@ -132,13 +135,17 @@
     <div id="charModal" class="modal-overlay hidden">
         <div class="glass-panel">
             <button id="closeCharModal" class="close-btn">&times;</button>
-            <h2 style="margin-bottom: 20px; font-size: 1.5rem;">Vault</h2>
-            <div id="char-list" style="display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 25px; max-height: 250px; overflow-y: auto;"></div>
-            <h3 style="margin-bottom: 15px; font-size: 1rem; color: var(--text-muted);">Create New</h3>
-            <input type="text" id="newCharName" class="glass-input" placeholder="Character Name" style="margin-bottom: 10px;">
-            <input type="text" id="newCharAvatar" class="glass-input" placeholder="Avatar Image URL" style="margin-bottom: 10px;">
+            <h2 style="margin-bottom: 20px; font-size: 1.5rem;">Assistant Personas</h2>
+            <div id="char-list"></div>
+            <h3 style="margin-top: 20px; margin-bottom: 15px; font-size: 1rem; color: var(--text-muted); border-top: 1px solid var(--border-glass); padding-top: 20px;">Create New Persona</h3>
+            <input type="text" id="newCharName" class="glass-input" placeholder="Persona Name" style="margin-bottom: 10px;">
+            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                <img id="newCharAvatarPreview" src="" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; display: none; border: 1px solid var(--border-glass);">
+                <button id="newCharAvatarBtn" class="secondary-btn" style="flex: 1; margin: 0;">Upload Avatar Image</button>
+                <input type="file" id="newCharAvatarFile" accept="image/*" class="hidden">
+            </div>
             <textarea id="newCharPrompt" class="glass-input" placeholder="System Directives / Persona" style="height: 100px; margin-bottom: 15px;"></textarea>
-            <button id="saveCharBtn" class="primary-btn" style="margin-top:0;">Save to Vault</button>
+            <button id="saveCharBtn" class="primary-btn" style="margin-top:0;">Save Persona</button>
         </div>
     </div>
 
@@ -147,7 +154,6 @@
             <h3 id="voice-status-text" style="color: #ffb6c1; margin-bottom: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; text-align: center;">Initializing Model...</h3>
             <canvas id="voice-visualizer"></canvas>
             <div class="voice-controls">
-                <button id="voice-interrupt-btn" class="voice-btn stop">Stop Audio</button>
                 <button id="voice-cancel-btn" class="voice-btn cancel">Close</button>
             </div>
             <div id="voice-progress-container" class="hidden" style="width: 100%; margin-top: 15px;">
