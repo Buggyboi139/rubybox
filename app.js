@@ -1,251 +1,192 @@
 const UI = {
-  menuBtn: document.getElementById('menu-toggle'),
-  sidebar: document.getElementById('sidebar'),
-  apiKey: document.getElementById('api-key'),
-  model: document.getElementById('model-select'),
-  systemPrompt: document.getElementById('system-prompt'),
-  charUpload: document.getElementById('char-upload'),
-  charNameDisplay: document.getElementById('char-name'),
-  importUpload: document.getElementById('import-upload'),
-  exportBtn: document.getElementById('export-btn'),
-  clearBtn: document.getElementById('clear-btn'),
-  compressBtn: document.getElementById('compress-btn'),
-  chatLog: document.getElementById('chat-log'),
-  prompt: document.getElementById('prompt'),
-  sendBtn: document.getElementById('send-btn'),
-  status: document.getElementById('status'),
-  costDisplay: document.getElementById('cost-display')
+    chatLog: document.getElementById('chat-log'),
+    prompt: document.getElementById('prompt'),
+    sendBtn: document.getElementById('send-btn'),
+    stopBtn: document.getElementById('stop-btn'),
+    costDisplay: document.getElementById('cost-display'),
+    status: document.getElementById('status-badge'),
+    model: document.getElementById('model-select'),
+    apiKey: document.getElementById('api-key'),
+    sysPrompt: document.getElementById('system-prompt'),
+    persistMem: document.getElementById('persistent-memory'),
+    sidebar: document.getElementById('sidebar'),
+    menuBtn: document.getElementById('menu-toggle'),
+    clearBtn: document.getElementById('clear-btn'),
+    compressBtn: document.getElementById('compress-btn'),
+    exportBtn: document.getElementById('export-btn')
 };
 
-let state = JSON.parse(localStorage.getItem('ruby_state')) || {
-  messages: [],
-  totalCost: 0,
-  compressionCount: 0,
-  sysPrompt: "You are the RubyBox orchestrator.\n1. PLAN: Outline steps required.\n2. EXECUTE: Perform the step.\n3. REVIEW: Confirm output meets requirements.",
-  character: null
+let controller = null;
+let state = JSON.parse(localStorage.getItem('rb_claw_state')) || {
+    history: [],
+    cost: 0,
+    memory: ""
 };
 
-function saveState() {
-  state.sysPrompt = UI.systemPrompt.value;
-  localStorage.setItem('ruby_state', JSON.stringify(state));
-  localStorage.setItem('ruby_key', UI.apiKey.value);
+const save = () => {
+    state.memory = UI.persistMem.value;
+    localStorage.setItem('rb_claw_state', JSON.stringify(state));
+    localStorage.setItem('rb_claw_key', UI.apiKey.value);
+    localStorage.setItem('rb_claw_sys', UI.sysPrompt.value);
+};
+
+const load = () => {
+    UI.apiKey.value = localStorage.getItem('rb_claw_key') || "";
+    UI.sysPrompt.value = localStorage.getItem('rb_claw_sys') || "You are a RubyBox autonomous agent.\n1. PLAN\n2. EXECUTE\n3. REVIEW";
+    UI.persistMem.value = state.memory || "";
+    UI.costDisplay.textContent = `$${state.cost.toFixed(5)}`;
+    renderHistory();
+};
+
+function renderHistory() {
+    UI.chatLog.innerHTML = "";
+    state.history.forEach(m => addMessage(m.role, m.content, false));
 }
 
-function loadState() {
-  UI.apiKey.value = localStorage.getItem('ruby_key') || '';
-  UI.systemPrompt.value = state.sysPrompt || '';
-  if (state.character && state.character.name) {
-    UI.charNameDisplay.textContent = state.character.name;
-  }
-  updateCostDisplay();
-  renderMessages();
-}
-
-function updateCostDisplay() {
-  UI.costDisplay.textContent = `$${state.totalCost.toFixed(5)}`;
-}
-
-UI.menuBtn.addEventListener('click', () => {
-  UI.sidebar.classList.toggle('open');
-});
-
-UI.apiKey.addEventListener('input', saveState);
-UI.systemPrompt.addEventListener('input', saveState);
-
-UI.clearBtn.addEventListener('click', () => {
-  state.messages = [];
-  state.totalCost = 0;
-  state.compressionCount = 0;
-  saveState();
-  renderMessages();
-  updateCostDisplay();
-});
-
-UI.compressBtn.addEventListener('click', triggerCompression);
-
-UI.exportBtn.addEventListener('click', () => {
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
-  const el = document.createElement('a');
-  el.setAttribute("href", dataStr);
-  el.setAttribute("download", `rubybox_state_${Date.now()}.json`);
-  document.body.appendChild(el);
-  el.click();
-  el.remove();
-});
-
-UI.importUpload.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    try {
-      const parsed = JSON.parse(event.target.result);
-      state = parsed;
-      loadState();
-      saveState();
-      UI.status.textContent = 'State Imported';
-    } catch (err) {
-      UI.status.textContent = 'ERR: BAD JSON';
+function addMessage(role, content, streaming = false) {
+    let div = streaming ? document.getElementById('streaming-box') : null;
+    if (!div) {
+        div = document.createElement('div');
+        div.className = `msg ${role}`;
+        if (streaming) div.id = 'streaming-box';
+        const inner = document.createElement('div');
+        inner.className = 'content';
+        div.appendChild(inner);
+        UI.chatLog.appendChild(div);
     }
-  };
-  reader.readAsText(file);
-});
-
-UI.charUpload.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    try {
-      const charData = JSON.parse(event.target.result);
-      const name = charData.name || charData.data?.name || "Unknown";
-      const desc = charData.description || charData.data?.description || "";
-      const persona = charData.personality || charData.data?.personality || "";
-      
-      state.character = { name, description: desc, personality: persona };
-      UI.charNameDisplay.textContent = name;
-      saveState();
-      UI.status.textContent = 'Char Loaded';
-    } catch (err) {
-      UI.status.textContent = 'ERR: CHAR PARSE';
-    }
-  };
-  reader.readAsText(file);
-});
-
-function renderMessages() {
-  UI.chatLog.innerHTML = '';
-  state.messages.forEach(m => {
-    if (m.role === 'system' && !m.isSummary) return;
-    const div = document.createElement('div');
-    div.className = `msg ${m.role === 'user' ? 'user' : (m.isSummary ? 'system' : 'ai')}`;
-    div.textContent = m.content;
-    UI.chatLog.appendChild(div);
-  });
-  UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
+    const target = div.querySelector('.content');
+    target.innerHTML = marked.parse(content);
+    UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
+    return target;
 }
 
-function buildSystemMessage() {
-  let content = UI.systemPrompt.value;
-  if (state.character) {
-    content += `\n\nCHARACTER IDENTITY:\nName: ${state.character.name}\nPersonality: ${state.character.personality}\nDescription: ${state.character.description}`;
-  }
-  return content;
-}
-
-async function triggerCompression() {
-  if (state.messages.length < 4) return;
-  
-  UI.status.textContent = 'Compressing...';
-  const key = UI.apiKey.value.trim();
-  
-  const compressionPrompt = "Summarize the following conversation retaining all factual data, decisions, and uncompleted plans. Output ONLY the summary.\n\n" + 
-    state.messages.map(m => `${m.role}: ${m.content}`).join('\n');
-
-  try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${key}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.0-flash-lite-preview-05-10:free",
-        messages: [{ role: "user", content: compressionPrompt }]
-      })
-    });
-
-    const data = await res.json();
-    if (data.choices && data.choices[0]) {
-      const summary = data.choices[0].message.content;
-      state.messages = [
-        { role: "system", content: `PREVIOUS CONTEXT SUMMARY:\n${summary}`, isSummary: true },
-        ...state.messages.slice(-2) 
-      ];
-      state.compressionCount++;
-      saveState();
-      renderMessages();
-    }
-  } catch (e) {
-    UI.status.textContent = 'ERR: COMPRESSION';
-  }
-  UI.status.textContent = 'Idle';
-}
-
-async function orchestrate() {
-  const key = UI.apiKey.value.trim();
-  if (!key) {
-    UI.status.textContent = 'ERR: NO KEY';
-    return;
-  }
-  
-  UI.status.textContent = 'EXEC...';
-  
-  if (state.messages.length > 15) {
-    await triggerCompression();
-  }
-  
-  let formattedMessages = [
-    { role: "system", content: buildSystemMessage() },
-    ...state.messages.map(m => ({ role: m.role, content: m.content }))
-  ];
-
-  if (formattedMessages.length > 2) {
-      formattedMessages[formattedMessages.length - 2].cache_control = { type: "ephemeral" };
-  }
-
-  try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${key}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": window.location.href,
-        "X-Title": "RubyBox PWA"
-      },
-      body: JSON.stringify({
-        model: UI.model.value,
-        messages: formattedMessages
-      })
-    });
-
-    const data = await res.json();
+async function healMemory() {
+    if (state.history.length < 5) return;
+    UI.status.textContent = "HEALING...";
+    const summaryPrompt = `CRITICAL TASK: Summarize the conversation so far. Extract: 1. Completed tasks 2. Pending goals 3. Technical constraints. Update the 'Self-Healing Memory' block.`;
     
-    if (data.usage && data.usage.total_cost) {
-        state.totalCost += data.usage.total_cost;
-        updateCostDisplay();
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${UI.apiKey.value}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            model: "google/gemini-2.0-flash-lite-preview-05-10:free",
+            messages: [
+                { role: "system", content: "You are a context compression engine." },
+                ...state.history,
+                { role: "user", content: summaryPrompt }
+            ]
+        })
+    });
+    const data = await res.json();
+    if (data.choices) {
+        UI.persistMem.value = data.choices[0].message.content;
+        state.history = state.history.slice(-4);
+        UI.status.textContent = "HEALED";
+        save();
+        renderHistory();
     }
-
-    if (data.choices && data.choices[0]) {
-      const responseMsg = data.choices[0].message;
-      state.messages.push(responseMsg);
-      saveState();
-      renderMessages();
-      
-      if (responseMsg.content.includes("PLAN:") && !responseMsg.content.includes("REVIEW:")) {
-         UI.status.textContent = 'LOOPING...';
-         state.messages.push({ role: 'user', content: 'Continue execution.' });
-         await orchestrate();
-      } else {
-         UI.status.textContent = 'Idle';
-      }
-
-    } else {
-      UI.status.textContent = 'ERR: API';
-    }
-  } catch (e) {
-    UI.status.textContent = 'ERR: NET';
-  }
 }
 
-UI.sendBtn.addEventListener('click', () => {
-  const text = UI.prompt.value.trim();
-  if (!text) return;
-  state.messages.push({ role: 'user', content: text });
-  UI.prompt.value = '';
-  saveState();
-  renderMessages();
-  orchestrate();
+async function execute() {
+    const input = UI.prompt.value.trim();
+    if (!input && state.history.length === 0) return;
+
+    if (input) {
+        state.history.push({ role: 'user', content: input });
+        addMessage('user', input);
+        UI.prompt.value = "";
+    }
+
+    controller = new AbortController();
+    UI.stopBtn.classList.remove('hidden');
+    UI.status.textContent = "EXECUTING";
+
+    const systemWithMemory = `${UI.sysPrompt.value}\n\n[PERSISTENT_MEMORY]\n${UI.persistMem.value}`;
+    const messages = [{ role: "system", content: systemWithMemory }, ...state.history];
+
+    try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${UI.apiKey.value}`,
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://rubybox.chat",
+                "X-Title": "RubyBox Claw"
+            },
+            signal: controller.signal,
+            body: JSON.stringify({
+                model: UI.model.value,
+                messages: messages,
+                stream: true,
+                plugins: [{ id: "openai", cache_control: "ephemeral" }]
+            })
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = "";
+        const box = addMessage('ai', "", true);
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value);
+            const lines = chunk.split("\n");
+            for (const line of lines) {
+                if (line.startsWith("data: ")) {
+                    if (line.includes("[DONE]")) continue;
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        const delta = data.choices[0].delta.content || "";
+                        fullText += delta;
+                        box.innerHTML = marked.parse(fullText);
+                        UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
+                    } catch (e) {}
+                }
+            }
+        }
+
+        const finalId = document.getElementById('streaming-box');
+        if (finalId) finalId.id = "";
+        state.history.push({ role: 'assistant', content: fullText });
+        
+        if (state.history.length > 20) await healMemory();
+
+    } catch (e) {
+        if (e.name !== 'AbortError') addMessage('system', `!! ERROR: ${e.message}`);
+    } finally {
+        UI.stopBtn.classList.add('hidden');
+        UI.status.textContent = "READY";
+        controller = null;
+        save();
+    }
+}
+
+UI.sendBtn.addEventListener('click', execute);
+UI.stopBtn.addEventListener('click', () => controller?.abort());
+UI.menuBtn.addEventListener('click', () => UI.sidebar.classList.toggle('open'));
+UI.clearBtn.addEventListener('click', () => {
+    state.history = [];
+    UI.chatLog.innerHTML = "";
+    save();
+});
+UI.compressBtn.addEventListener('click', healMemory);
+UI.exportBtn.addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rubybox_claw_${Date.now()}.json`;
+    a.click();
+});
+UI.prompt.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        execute();
+    }
 });
 
-loadState();
+load();
