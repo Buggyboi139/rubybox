@@ -252,6 +252,7 @@ const VoiceManager = (() => {
     }
 
     function queueText(text) {
+        if (!/[a-zA-Z0-9]/.test(text)) return;
         ttsQueue.push(text);
         processQueue();
     }
@@ -289,7 +290,7 @@ const VoiceManager = (() => {
     }
 
     function checkConversationTurn() {
-        if (activeSources.length === 0 && ttsQueue.length === 0 && !isGenerating && isStreamComplete) {
+        if (activeSources.length === 0 && ttsQueue.length === 0 && !isGenerating && isStreamComplete && currentState !== 'listening') {
             isStreamComplete = false;
             startListening();
         }
