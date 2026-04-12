@@ -49,6 +49,7 @@ window.App.initUI = function() {
         sidebar: document.getElementById('sidebar'),
         menuBtn: document.getElementById('menu-toggle'),
         overlay: document.getElementById('sidebar-overlay'),
+        mobileSidebarClose: document.getElementById('mobile-sidebar-close'),
         newChatBtn: document.getElementById('new-chat-btn'),
         chatSearch: document.getElementById('chat-search'),
         conversationsList: document.getElementById('conversations-list'),
