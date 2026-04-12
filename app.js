@@ -22,6 +22,8 @@ const UI = {
     newCharPrompt: document.getElementById('newCharPrompt'),
     saveCharBtn: document.getElementById('saveCharBtn'),
     downloadBtn: document.getElementById('download-btn'),
+    importBtn: document.getElementById('import-btn'),
+    importFile: document.getElementById('import-file'),
     activeCharDisplay: document.getElementById('active-char-display'),
     activeCharImg: document.getElementById('active-char-img'),
     activeCharName: document.getElementById('active-char-name'),
@@ -48,6 +50,42 @@ let state = JSON.parse(localStorage.getItem('rb_glass_state')) || {
 const DEFAULT_USER_AVATAR = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ffb6c1"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
 const DEFAULT_AI_AVATAR = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23f8fafc"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a3 3 0 0 1 3 3v2h2v4h-2v2a3 3 0 0 1-3 3h-1v1.27a2 2 0 1 1-2 0V19h-1a3 3 0 0 1-3-3v-2H5v-4h2V10a3 3 0 0 1 3-3h1V5.73A2 2 0 0 1 12 2z"/></svg>';
 
+async function deriveKey(password, salt) {
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
+        keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+    );
+}
+
+async function encryptData(text, password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveKey(password, salt);
+    const enc = new TextEncoder();
+    const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, enc.encode(text));
+    const encryptedArray = new Uint8Array(encrypted);
+    let combined = new Uint8Array(salt.length + iv.length + encryptedArray.length);
+    combined.set(salt, 0);
+    combined.set(iv, salt.length);
+    combined.set(encryptedArray, salt.length + iv.length);
+    return btoa(String.fromCharCode.apply(null, combined));
+}
+
+async function decryptData(base64, password) {
+    const str = atob(base64);
+    const combined = new Uint8Array(str.length);
+    for (let i = 0; i < str.length; i++) combined[i] = str.charCodeAt(i);
+    const salt = combined.slice(0, 16);
+    const iv = combined.slice(16, 28);
+    const data = combined.slice(28);
+    const key = await deriveKey(password, salt);
+    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, data);
+    const dec = new TextDecoder();
+    return dec.decode(decrypted);
+}
+
 UI.chatLog.addEventListener('scroll', () => {
     const { scrollTop, scrollHeight, clientHeight } = UI.chatLog;
     isAutoScrolling = scrollHeight - scrollTop - clientHeight < 50;
@@ -58,11 +96,13 @@ const save = () => {
     localStorage.setItem('rb_glass_state', JSON.stringify(state));
     localStorage.setItem('rb_glass_key', UI.apiKey.value);
     localStorage.setItem('rb_glass_sys', UI.sysPrompt.value);
+    localStorage.setItem('rb_glass_model', UI.model.value);
 };
 
 const load = () => {
     UI.apiKey.value = localStorage.getItem('rb_glass_key') || "";
     UI.sysPrompt.value = localStorage.getItem('rb_glass_sys') || "";
+    UI.model.value = localStorage.getItem('rb_glass_model') || "deepseek/deepseek-chat";
     UI.persistMem.value = state.memory || "";
     renderActiveCharacter();
     renderHistory();
@@ -325,6 +365,7 @@ async function execute() {
     }
 }
 
+UI.model.addEventListener('change', save);
 UI.sendBtn.addEventListener('click', execute);
 UI.stopBtn.addEventListener('click', () => controller?.abort());
 UI.menuBtn.addEventListener('click', () => {
@@ -368,17 +409,79 @@ UI.saveCharBtn.addEventListener('click', () => {
     }
 });
 
-UI.downloadBtn.addEventListener('click', () => {
+UI.downloadBtn.addEventListener('click', async () => {
     const exportData = {
         history: state.history,
-        character: state.activeCharacter
+        character: state.activeCharacter,
+        characters: state.characters,
+        memory: state.memory,
+        sysPrompt: UI.sysPrompt.value,
+        apiKey: UI.apiKey.value,
+        model: UI.model.value
     };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
+    const rawJson = JSON.stringify(exportData);
+    const pass = prompt("Enter a password to encrypt your vault, or leave blank to export unencrypted JSON:");
+    
+    let outputData = rawJson;
+    let ext = "json";
+    
+    if (pass) {
+        try {
+            outputData = await encryptData(rawJson, pass);
+            ext = "enc";
+        } catch (e) {
+            alert("Encryption failed.");
+            return;
+        }
+    }
+    
+    const blob = new Blob([outputData], {type: "text/plain"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `rubybox-chat-${Date.now()}.json`;
+    a.download = `rubybox-vault-${Date.now()}.${ext}`;
     a.click();
+});
+
+UI.importBtn.addEventListener('click', () => UI.importFile.click());
+
+UI.importFile.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        let text = event.target.result;
+        try {
+            let parsed;
+            if (text.trim().startsWith('{')) {
+                parsed = JSON.parse(text);
+            } else {
+                const pass = prompt("Vault is encrypted. Please enter your password:");
+                if (!pass) return;
+                const dec = await decryptData(text.trim(), pass);
+                parsed = JSON.parse(dec);
+            }
+            
+            state.history = parsed.history || [];
+            state.characters = parsed.characters || [];
+            state.activeCharacter = parsed.character || null;
+            state.memory = parsed.memory || "";
+            
+            UI.persistMem.value = state.memory;
+            if (parsed.sysPrompt !== undefined) UI.sysPrompt.value = parsed.sysPrompt;
+            if (parsed.apiKey !== undefined) UI.apiKey.value = parsed.apiKey;
+            if (parsed.model !== undefined) UI.model.value = parsed.model;
+            
+            save();
+            renderActiveCharacter();
+            renderHistory();
+            renderCharacters();
+            UI.importFile.value = "";
+        } catch (err) {
+            alert("Import failed. Wrong password or invalid file.");
+        }
+    };
+    reader.readAsText(file);
 });
 
 UI.prompt.addEventListener('input', function() {
