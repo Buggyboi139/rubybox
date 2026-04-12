@@ -63,6 +63,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('login-btn').addEventListener('click', () => {
         document.getElementById('authModal').classList.remove('hidden');
+        document.getElementById('sidebar').classList.remove('show');
+        document.getElementById('sidebar-overlay').classList.remove('show');
     });
 
     document.getElementById('closeAuthModal').addEventListener('click', () => {
