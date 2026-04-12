@@ -1,64 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RubyBox Harness</title>
-<link rel="stylesheet" href="styles.css">
-<link rel="manifest" href="manifest.json">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RubyBox | Ultra-Harness</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<button id="menu-toggle" class="glass-btn">☰</button>
-<aside id="sidebar" class="glass-panel">
-<h2>RubyBox.chat</h2>
-<input type="password" id="api-key" placeholder="OpenRouter API Key" class="glass-input">
-<select id="model-select" class="glass-input">
-<optgroup label="Frontier & Heavy Orchestration">
-<option value="anthropic/claude-4.6-opus">Claude Opus 4.6 ($5.00 / $25.00)</option>
-<option value="anthropic/claude-4.6-sonnet">Claude Sonnet 4.6 ($3.00 / $15.00)</option>
-<option value="xiaomi/mimo-v2-pro">MiMo-V2-Pro ($1.00 / $3.00)</option>
-</optgroup>
-<optgroup label="High-Efficiency & Agentic">
-<option value="google/gemini-3-flash-preview">Gemini 3 Flash Preview ($0.50 / $3.00)</option>
-<option value="moonshotai/kimi-k2.5">Kimi K2.5 ($0.38 / $1.72)</option>
-<option value="minimax/minimax-m2.7">MiniMax M2.7 ($0.30 / $1.20)</option>
-<option value="deepseek/deepseek-v3.2">DeepSeek V3.2 ($0.26 / $0.38)</option>
-</optgroup>
-<optgroup label="Volume & Low Cost">
-<option value="openai/gpt-4o-mini">GPT-4o-mini ($0.15 / $0.60)</option>
-<option value="minimax/minimax-m2.5">MiniMax M2.5 ($0.118 / $0.99)</option>
-<option value="nvidia/nemotron-3-super:free">Nemotron 3 Super (Free)</option>
-<option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (Free)</option>
-</optgroup>
-</select>
-<textarea id="system-prompt" class="glass-input" placeholder="Define system directives..."></textarea>
-<div class="metrics">
-<span>Cost: </span><span id="cost-display">$0.0000</span>
-</div>
-<div class="file-action-group">
-<label for="char-upload" class="glass-btn file-label">Load Char Card</label>
-<input type="file" id="char-upload" accept=".json" class="hidden-input">
-<span id="char-name" class="status-text">None</span>
-</div>
-<div class="file-action-group">
-<label for="import-upload" class="glass-btn file-label">Import State</label>
-<input type="file" id="import-upload" accept=".json" class="hidden-input">
-</div>
-<button id="export-btn" class="glass-btn">Save State to JSON</button>
-<button id="compress-btn" class="glass-btn">Force Compression</button>
-<button id="clear-btn" class="glass-btn">Purge Memory</button>
-</aside>
-<main id="chat-wrapper" class="glass-panel">
-<div id="chat-header">
-<span id="model-label">ORCHESTRATOR IDLE</span>
-<span id="status"></span>
-</div>
-<div id="chat-log"></div>
-<div id="input-area">
-<textarea id="prompt" class="glass-input" placeholder="Initiate task sequence..."></textarea>
-<button id="send-btn" class="glass-btn">►</button>
-</div>
-</main>
-<script src="app.js"></script>
+    <button id="menu-toggle" class="glass-btn">☰</button>
+    <aside id="sidebar" class="glass-panel">
+        <div class="brand">RUBYBOX CLAW_V1</div>
+        <input type="password" id="api-key" placeholder="OpenRouter API Key" class="glass-input">
+        <select id="model-select" class="glass-input">
+            <optgroup label="Logic/Thinking">
+                <option value="deepseek/deepseek-r1">DeepSeek R1 (Thinking)</option>
+                <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+            </optgroup>
+            <optgroup label="High-Efficiency (Claw-Native)">
+                <option value="deepseek/deepseek-chat">DeepSeek V3 (Cached)</option>
+                <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
+                <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
+            </optgroup>
+        </select>
+        <textarea id="system-prompt" class="glass-input" placeholder="Core Directives..."></textarea>
+        <textarea id="persistent-memory" class="glass-input" placeholder="Self-Healing Memory (Pinned Facts)..."></textarea>
+        
+        <div class="metrics">
+            <div>Usage: <span id="cost-display">$0.0000</span></div>
+            <div id="status-badge">READY</div>
+        </div>
+
+        <div class="action-grid">
+            <button id="clear-btn" class="glass-btn danger">Purge</button>
+            <button id="export-btn" class="glass-btn">Export</button>
+            <button id="compress-btn" class="glass-btn">Heal</button>
+        </div>
+    </aside>
+
+    <main id="chat-wrapper">
+        <div id="chat-log"></div>
+        <div id="input-container" class="glass-panel">
+            <textarea id="prompt" placeholder="Set direction..."></textarea>
+            <div class="input-actions">
+                <button id="stop-btn" class="glass-btn hidden">STOP</button>
+                <button id="send-btn" class="glass-btn">EXECUTE</button>
+            </div>
+        </div>
+    </main>
+    <script src="app.js"></script>
 </body>
 </html>
