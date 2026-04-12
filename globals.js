@@ -4,7 +4,7 @@ window.App = {
         history: [],
         characters: [],
         activeCharacter: null,
-        settings: { temperature: 0.7, contextLimit: 10, defaultModel: "deepseek/deepseek-chat" }
+        settings: { temperature: 0.7, contextLimit: 10, defaultModel: "deepseek/deepseek-chat", voiceMode: "local" }
     },
     user: null,
     currentConversationId: null,
@@ -37,6 +37,7 @@ window.App.initUI = function() {
         imagePreview: document.getElementById('image-preview'),
         clearImgBtn: document.getElementById('clear-img-btn'),
         model: document.getElementById('model-select'),
+        voiceMode: document.getElementById('voice-mode'),
         apiKey: document.getElementById('api-key'),
         sysPrompt: document.getElementById('system-prompt'),
         narrativePrompt: document.getElementById('narrative-prompt'),
@@ -49,6 +50,7 @@ window.App.initUI = function() {
         menuBtn: document.getElementById('menu-toggle'),
         overlay: document.getElementById('sidebar-overlay'),
         newChatBtn: document.getElementById('new-chat-btn'),
+        chatSearch: document.getElementById('chat-search'),
         conversationsList: document.getElementById('conversations-list'),
         charsBtn: document.getElementById('chars-btn'),
         charModal: document.getElementById('charModal'),
@@ -69,6 +71,8 @@ window.App.initUI = function() {
         activeCharDisplay: document.getElementById('active-char-display'),
         activeCharImg: document.getElementById('active-char-img'),
         activeCharName: document.getElementById('active-char-name'),
-        clearCharBtn: document.getElementById('clear-char-btn')
+        clearCharBtn: document.getElementById('clear-char-btn'),
+        exportBtn: document.getElementById('export-chat-btn'),
+        tokenCounter: document.getElementById('token-counter')
     };
 };
