@@ -14,7 +14,18 @@ window.App.setupEventListeners = function() {
             window.App.UI.overlay.classList.toggle('show');
         }
     });
-    window.App.UI.overlay.addEventListener('click', () => { window.App.UI.sidebar.classList.remove('show'); window.App.UI.overlay.classList.remove('show'); });
+
+    window.App.UI.overlay.addEventListener('click', () => { 
+        window.App.UI.sidebar.classList.remove('show'); 
+        window.App.UI.overlay.classList.remove('show'); 
+    });
+
+    if (window.App.UI.mobileSidebarClose) {
+        window.App.UI.mobileSidebarClose.addEventListener('click', () => {
+            window.App.UI.sidebar.classList.remove('show');
+            window.App.UI.overlay.classList.remove('show');
+        });
+    }
 
     window.App.UI.profileBtn.addEventListener('click', () => { window.App.UI.profileModal.classList.remove('hidden'); window.App.UI.sidebar.classList.remove('show'); window.App.UI.overlay.classList.remove('show'); });
     window.App.UI.closeProfileModal.addEventListener('click', () => window.App.UI.profileModal.classList.add('hidden'));
