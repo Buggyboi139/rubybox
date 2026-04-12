@@ -12,6 +12,7 @@ window.AppManager = (() => {
         clearImgBtn: document.getElementById('clear-img-btn'),
         status: document.getElementById('status-badge'),
         model: document.getElementById('model-select'),
+        apiKey: document.getElementById('api-key'),
         sysPrompt: document.getElementById('system-prompt'),
         narrativePrompt: document.getElementById('narrative-prompt'),
         persistMem: document.getElementById('persistent-memory'),
@@ -103,6 +104,7 @@ window.AppManager = (() => {
             state.settings.contextLimit = data.context_limit;
             state.settings.voiceAccepted = data.voice_accepted;
             if(data.default_model) state.settings.defaultModel = data.default_model;
+            if(data.encrypted_api_key) UI.apiKey.value = data.encrypted_api_key; 
         }
         
         UI.tempSlider.value = state.settings.temperature;
@@ -119,7 +121,8 @@ window.AppManager = (() => {
             temperature: parseFloat(UI.tempSlider.value),
             context_limit: parseInt(UI.ctxSlider.value),
             default_model: UI.model.value,
-            voice_accepted: state.settings.voiceAccepted
+            voice_accepted: state.settings.voiceAccepted,
+            encrypted_api_key: UI.apiKey.value
         });
     }
 
@@ -533,12 +536,14 @@ window.AppManager = (() => {
 
             const dbContent = typeof contentPayload === 'string' ? contentPayload : JSON.stringify(contentPayload);
 
-            const { data } = await window.supabaseClient.from('messages').insert([{
+            const { data, error } = await window.supabaseClient.from('messages').insert([{
                 conversation_id: currentConversationId,
                 user_id: user.id,
                 role: 'user',
                 content: dbContent
             }]).select().single();
+            
+            if (error) throw error;
             
             if(data) {
                 state.history.push({ role: 'user', content: contentPayload, id: data.id });
@@ -566,11 +571,10 @@ window.AppManager = (() => {
         const messages = [{ role: "system", content: systemContent }, ...recent];
         
         try {
-            const { data: { session } } = await window.supabaseClient.auth.getSession();
-            const response = await fetch(`${window.supabaseClient.supabaseUrl}/functions/v1/chat`, {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${session.access_token}`,
+                    "Authorization": `Bearer ${UI.apiKey.value}`,
                     "Content-Type": "application/json"
                 },
                 signal: controller.signal,
@@ -612,12 +616,14 @@ window.AppManager = (() => {
             const streamContainer = document.getElementById('streaming-container');
             if (streamContainer) streamContainer.id = "";
             
-            const { data: aiData } = await window.supabaseClient.from('messages').insert([{
+            const { data: aiData, error: aiError } = await window.supabaseClient.from('messages').insert([{
                 conversation_id: currentConversationId,
                 user_id: user.id,
                 role: 'assistant',
                 content: fullText
             }]).select().single();
+
+            if (aiError) throw aiError;
 
             if(aiData) {
                 state.history.push({ role: 'assistant', content: fullText, id: aiData.id });
@@ -660,6 +666,7 @@ window.AppManager = (() => {
         UI.tempSlider.addEventListener('input', (e) => { UI.tempVal.textContent = e.target.value; saveUserSettings(); });
         UI.ctxSlider.addEventListener('input', (e) => { UI.ctxVal.textContent = e.target.value; saveUserSettings(); });
         UI.model.addEventListener('change', saveUserSettings);
+        UI.apiKey.addEventListener('change', saveUserSettings);
 
         UI.attachImgBtn.addEventListener('click', () => UI.imageUpload.click());
         UI.imageUpload.addEventListener('change', (e) => {
@@ -713,7 +720,8 @@ window.AppManager = (() => {
             const avatar = UI.newCharAvatar.value.trim();
             const prompt = UI.newCharPrompt.value.trim();
             if (name && prompt && user) {
-                await window.supabaseClient.from('characters').insert([{ user_id: user.id, name, avatar, system_prompt: prompt }]);
+                const { error } = await window.supabaseClient.from('characters').insert([{ user_id: user.id, name, avatar, system_prompt: prompt }]);
+                if (error) return console.error(error);
                 UI.newCharName.value = ""; UI.newCharAvatar.value = ""; UI.newCharPrompt.value = "";
                 loadCharacters();
             }
