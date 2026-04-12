@@ -1,8 +1,3 @@
-window.App.handleTranscriptionSubmit = function(text) {
-    window.App.UI.prompt.value = text.trim();
-    if (window.App.UI.prompt.value) window.App.execute(true);
-};
-
 window.App.setupEventListeners = function() {
     window.App.UI.chatLog.addEventListener('scroll', () => { 
         const diff = window.App.UI.chatLog.scrollHeight - window.App.UI.chatLog.scrollTop - window.App.UI.chatLog.clientHeight;
@@ -67,6 +62,8 @@ window.App.setupEventListeners = function() {
         if (s === 'speaking' || s === 'thinking') {
             if(window.App.controller) window.App.controller.abort();
             VoiceManager.interruptAndListen();
+        } else if (s === 'idle') {
+            VoiceManager.startListening();
         }
     });
 
@@ -84,10 +81,17 @@ window.App.setupEventListeners = function() {
         }
         window.App.UI.voiceSheet.classList.remove('hidden');
         setTimeout(() => window.App.UI.voiceSheet.classList.add('show'), 10);
-        VoiceManager.startListening();
+        
+        const vState = VoiceManager.getState();
+        if (vState === 'idle' || vState === 'ready') {
+            VoiceManager.startListening();
+        } else if (vState === 'initializing') {
+            VoiceManager.setPendingStart(true);
+        }
     });
 
     window.App.UI.exportBtn.addEventListener('click', window.App.exportChat);
+    document.getElementById('mobile-export-btn').addEventListener('click', window.App.exportChat);
     window.App.UI.sendBtn.addEventListener('click', () => window.App.execute(false));
     window.App.UI.stopBtn.addEventListener('click', () => { if(window.App.controller) window.App.controller.abort(); VoiceManager.stopAll(); });
     
