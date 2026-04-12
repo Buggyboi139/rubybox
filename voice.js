@@ -1,15 +1,20 @@
 const VoiceManager = (() => {
-    let audioContext;
-    let analyser;
+    let globalAudioContext;
+    let globalAnalyser;
+    let micAnalyser;
     let microphone;
     let javascriptNode;
     let canvas, canvasCtx;
-    let isListening = false;
-    let isSpeaking = false;
+    
+    let currentState = 'idle';
     let silenceTimer;
     let ttsQueue = [];
-    let currentTtsSource = null;
+    let activeSources = [];
+    let nextStartTime = 0;
+    
     let sttWorker = null;
+    let isGenerating = false;
+    
     let onTranscription = null;
     let onStateChange = null;
 
@@ -49,6 +54,11 @@ const VoiceManager = (() => {
     };
     `;
 
+    function changeState(newState) {
+        currentState = newState;
+        if(onStateChange) onStateChange(currentState);
+    }
+
     function init(transcriptionCallback, stateCallback) {
         onTranscription = transcriptionCallback;
         onStateChange = stateCallback;
@@ -61,75 +71,91 @@ const VoiceManager = (() => {
         sttWorker.onmessage = (e) => {
             if (e.data.type === 'ready') {
                 document.getElementById('voice-progress-container').classList.add('hidden');
-                if(onStateChange) onStateChange('ready');
+                changeState('ready');
             } else if (e.data.type === 'progress') {
                 document.getElementById('voice-progress-container').classList.remove('hidden');
                 document.getElementById('voice-progress-bar').style.width = '50%';
             } else if (e.data.type === 'transcription') {
                 if(onTranscription) onTranscription(e.data.text);
-                if(onStateChange) onStateChange('thinking');
+                changeState('thinking');
             } else if (e.data.type === 'audio') {
-                playAudioBuffer(e.data.buffer, e.data.sampleRate);
+                isGenerating = false;
+                scheduleAudio(e.data.buffer, e.data.sampleRate);
+                processQueue();
             } else if (e.data.type === 'audio_error') {
-                isSpeaking = false;
+                isGenerating = false;
                 processQueue();
             }
         };
         sttWorker.postMessage({ type: 'init' });
+        drawVisualizer();
+    }
+
+    function playDing() {
+        if (!globalAudioContext) return;
+        const osc = globalAudioContext.createOscillator();
+        const gain = globalAudioContext.createGain();
+        osc.connect(gain);
+        gain.connect(globalAudioContext.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, globalAudioContext.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(440, globalAudioContext.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.5, globalAudioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, globalAudioContext.currentTime + 0.3);
+        osc.start();
+        osc.stop(globalAudioContext.currentTime + 0.3);
     }
 
     async function startListening() {
-        if (!audioContext) {
-            audioContext = new AudioContext({ sampleRate: 16000 });
+        if (!globalAudioContext) {
+            globalAudioContext = new AudioContext({ sampleRate: 16000 });
+            globalAnalyser = globalAudioContext.createAnalyser();
+            globalAnalyser.connect(globalAudioContext.destination);
         }
-        if (audioContext.state === 'suspended') await audioContext.resume();
+        if (globalAudioContext.state === 'suspended') await globalAudioContext.resume();
 
-        stopPlayback();
-        ttsQueue = [];
+        interruptAndListen(true);
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            microphone = audioContext.createMediaStreamSource(stream);
-            analyser = audioContext.createAnalyser();
-            analyser.smoothingTimeConstant = 0.5;
-            analyser.fftSize = 1024;
+            microphone = globalAudioContext.createMediaStreamSource(stream);
+            micAnalyser = globalAudioContext.createAnalyser();
+            micAnalyser.smoothingTimeConstant = 0.5;
+            micAnalyser.fftSize = 1024;
 
-            javascriptNode = audioContext.createScriptProcessor(1024, 1, 1);
-            microphone.connect(analyser);
-            analyser.connect(javascriptNode);
-            javascriptNode.connect(audioContext.destination);
+            javascriptNode = globalAudioContext.createScriptProcessor(1024, 1, 1);
+            microphone.connect(micAnalyser);
+            micAnalyser.connect(javascriptNode);
+            javascriptNode.connect(globalAudioContext.destination);
 
             let audioChunks = [];
-            isListening = true;
-            if(onStateChange) onStateChange('listening');
+            changeState('listening');
+            playDing();
 
             javascriptNode.onaudioprocess = (e) => {
-                if (!isListening) return;
+                if (currentState !== 'listening') return;
                 const inputData = e.inputBuffer.getChannelData(0);
                 audioChunks.push(new Float32Array(inputData));
 
-                const array = new Uint8Array(analyser.frequencyBinCount);
-                analyser.getByteFrequencyData(array);
+                const array = new Uint8Array(micAnalyser.frequencyBinCount);
+                micAnalyser.getByteFrequencyData(array);
                 let sum = 0;
                 for (let i = 0; i < array.length; i++) sum += array[i];
                 const average = sum / array.length;
 
-                drawVisualizer(array);
-
                 if (average > 10) {
                     clearTimeout(silenceTimer);
                     silenceTimer = setTimeout(() => {
-                        stopListening(audioChunks);
+                        stopRecording(audioChunks);
                     }, 1500); 
                 }
             };
         } catch (err) {
-            if(onStateChange) onStateChange('error');
+            changeState('error');
         }
     }
 
-    function stopListening(chunks) {
-        isListening = false;
+    function stopRecording(chunks) {
         if (microphone) microphone.disconnect();
         if (javascriptNode) javascriptNode.disconnect();
         clearTimeout(silenceTimer);
@@ -143,96 +169,143 @@ const VoiceManager = (() => {
         }
     }
 
+    let sentenceBuffer = "";
+    
+    function receiveDelta(delta) {
+        sentenceBuffer += delta;
+        let cleaned = sentenceBuffer.replace(/[*#~`]/g, '').replace(/\[.*?\]\(.*?\)/g, '');
+        let match = cleaned.match(/([.!?])\s+/);
+        if (match) {
+            let index = match.index + 1;
+            let sentence = cleaned.substring(0, index);
+            let isAbbrev = /(Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St|vs|etc|ie|eg)\.$/i.test(sentence.trim());
+            if (!isAbbrev && sentence.trim().length > 2) {
+                queueText(sentence.trim());
+                sentenceBuffer = cleaned.substring(index).trim();
+            }
+        }
+    }
+
+    function commitBuffer() {
+        let cleaned = sentenceBuffer.replace(/[*#~`]/g, '').replace(/\[.*?\]\(.*?\)/g, '').trim();
+        if (cleaned.length > 0) queueText(cleaned);
+        sentenceBuffer = "";
+    }
+
     function queueText(text) {
         ttsQueue.push(text);
         processQueue();
     }
 
     function processQueue() {
-        if (isSpeaking || ttsQueue.length === 0) return;
-        isSpeaking = true;
-        if(onStateChange) onStateChange('speaking');
+        if (isGenerating || ttsQueue.length === 0) return;
+        isGenerating = true;
         const text = ttsQueue.shift();
         sttWorker.postMessage({ type: 'speak', text });
     }
 
-    function playAudioBuffer(bufferData, sampleRate) {
-        if (!audioContext) return;
-        const audioBuffer = audioContext.createBuffer(1, bufferData.length, sampleRate);
-        audioBuffer.getChannelData(0).set(bufferData);
-
-        currentTtsSource = audioContext.createBufferSource();
-        currentTtsSource.buffer = audioBuffer;
+    function scheduleAudio(bufferData, sampleRate) {
+        if (!globalAudioContext) return;
+        const buffer = globalAudioContext.createBuffer(1, bufferData.length, sampleRate);
+        buffer.getChannelData(0).set(bufferData);
         
-        const vizAnalyser = audioContext.createAnalyser();
-        currentTtsSource.connect(vizAnalyser);
-        vizAnalyser.connect(audioContext.destination);
+        const source = globalAudioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(globalAnalyser);
 
-        currentTtsSource.onended = () => {
-            isSpeaking = false;
-            currentTtsSource = null;
-            if (ttsQueue.length > 0) {
-                processQueue();
-            } else {
-                if(onStateChange) onStateChange('ready');
-                drawVisualizer(new Uint8Array(vizAnalyser.frequencyBinCount));
+        const currentTime = globalAudioContext.currentTime;
+        if (nextStartTime < currentTime) nextStartTime = currentTime;
+        
+        source.start(nextStartTime);
+        activeSources.push(source);
+        
+        if (currentState !== 'speaking') changeState('speaking');
+
+        nextStartTime += buffer.duration;
+        
+        source.onended = () => {
+            activeSources = activeSources.filter(s => s !== source);
+            if (activeSources.length === 0 && ttsQueue.length === 0 && !isGenerating && currentState !== 'listening') {
+                changeState('idle');
             }
         };
-
-        currentTtsSource.start(0);
-        
-        function drawOutput() {
-            if(!isSpeaking) return;
-            requestAnimationFrame(drawOutput);
-            const arr = new Uint8Array(vizAnalyser.frequencyBinCount);
-            vizAnalyser.getByteFrequencyData(arr);
-            drawVisualizer(arr);
-        }
-        drawOutput();
     }
 
-    function stopPlayback() {
-        if (currentTtsSource) {
-            currentTtsSource.stop();
-            currentTtsSource.disconnect();
-            currentTtsSource = null;
-        }
+    function interruptAndListen(skipStart = false) {
+        activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
+        activeSources = [];
         ttsQueue = [];
-        isSpeaking = false;
-        if(onStateChange) onStateChange('ready');
+        sentenceBuffer = "";
+        isGenerating = false;
+        nextStartTime = 0;
+        if(!skipStart) startListening();
     }
 
     function stopAll() {
-        isListening = false;
-        stopPlayback();
+        activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
+        activeSources = [];
+        ttsQueue = [];
+        sentenceBuffer = "";
+        isGenerating = false;
+        nextStartTime = 0;
         if (microphone) microphone.disconnect();
         if (javascriptNode) javascriptNode.disconnect();
         clearTimeout(silenceTimer);
+        changeState('idle');
     }
 
-    function drawVisualizer(dataArray) {
+    function drawVisualizer() {
+        requestAnimationFrame(drawVisualizer);
         if (!canvasCtx) return;
         const width = canvas.width = canvas.offsetWidth;
         const height = canvas.height = canvas.offsetHeight;
         canvasCtx.clearRect(0, 0, width, height);
 
-        canvasCtx.lineWidth = 2;
-        canvasCtx.strokeStyle = '#ffb6c1';
-        canvasCtx.beginPath();
-
-        const sliceWidth = width / dataArray.length;
-        let x = 0;
-
-        for (let i = 0; i < dataArray.length; i++) {
-            const v = dataArray[i] / 128.0;
-            const y = v * height / 2;
-            if (i === 0) canvasCtx.moveTo(x, y);
-            else canvasCtx.lineTo(x, y);
-            x += sliceWidth;
+        if (currentState === 'listening' && micAnalyser) {
+            const arr = new Uint8Array(micAnalyser.frequencyBinCount);
+            micAnalyser.getByteFrequencyData(arr);
+            canvasCtx.lineWidth = 3;
+            canvasCtx.strokeStyle = '#06b6d4';
+            canvasCtx.beginPath();
+            const sliceWidth = width / arr.length;
+            let x = 0;
+            for (let i = 0; i < arr.length; i++) {
+                const v = arr[i] / 128.0;
+                const y = (height - 30) - (v * 40); 
+                if (i === 0) canvasCtx.moveTo(x, y);
+                else canvasCtx.lineTo(x, y);
+                x += sliceWidth;
+            }
+            canvasCtx.stroke();
+        } else if (currentState === 'thinking') {
+            const t = Date.now() / 300;
+            let radius = 60 + Math.sin(t) * 20;
+            canvasCtx.beginPath();
+            canvasCtx.arc(width/2, height/2, radius, 0, 2*Math.PI);
+            canvasCtx.fillStyle = 'rgba(168, 85, 247, 0.4)';
+            canvasCtx.fill();
+            canvasCtx.beginPath();
+            canvasCtx.arc(width/2, height/2, radius * 0.6, 0, 2*Math.PI);
+            canvasCtx.fillStyle = 'rgba(168, 85, 247, 0.8)';
+            canvasCtx.fill();
+        } else if (currentState === 'speaking' && globalAnalyser) {
+            const arr = new Uint8Array(globalAnalyser.frequencyBinCount);
+            globalAnalyser.getByteFrequencyData(arr);
+            canvasCtx.lineWidth = 4;
+            canvasCtx.strokeStyle = '#10b981';
+            canvasCtx.beginPath();
+            const sliceWidth = width / arr.length;
+            let x = 0;
+            for (let i = 0; i < arr.length; i++) {
+                const v = arr[i] / 128.0;
+                const y = height/2 + (v * 80 - 80);
+                if (i === 0) canvasCtx.moveTo(x, y);
+                else canvasCtx.lineTo(x, y);
+                x += sliceWidth;
+            }
+            canvasCtx.stroke();
         }
-        canvasCtx.lineTo(width, height / 2);
-        canvasCtx.stroke();
     }
 
-    return { init, startListening, queueText, stopPlayback, stopAll };
+    return { init, startListening, receiveDelta, commitBuffer, interruptAndListen, stopAll, getState: () => currentState };
 })();
