@@ -13,9 +13,23 @@
 <h2>RubyBox.chat</h2>
 <input type="password" id="api-key" placeholder="OpenRouter API Key" class="glass-input">
 <select id="model-select" class="glass-input">
-<option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
-<option value="qwen/qwen-2.5-coder-32b-instruct">Qwen 2.5 Coder</option>
-<option value="mistralai/mistral-nemo">Mistral Nemo</option>
+<optgroup label="Frontier & Heavy Orchestration">
+<option value="anthropic/claude-4.6-opus">Claude Opus 4.6 ($5.00 / $25.00)</option>
+<option value="anthropic/claude-4.6-sonnet">Claude Sonnet 4.6 ($3.00 / $15.00)</option>
+<option value="xiaomi/mimo-v2-pro">MiMo-V2-Pro ($1.00 / $3.00)</option>
+</optgroup>
+<optgroup label="High-Efficiency & Agentic">
+<option value="google/gemini-3-flash-preview">Gemini 3 Flash Preview ($0.50 / $3.00)</option>
+<option value="moonshotai/kimi-k2.5">Kimi K2.5 ($0.38 / $1.72)</option>
+<option value="minimax/minimax-m2.7">MiniMax M2.7 ($0.30 / $1.20)</option>
+<option value="deepseek/deepseek-v3.2">DeepSeek V3.2 ($0.26 / $0.38)</option>
+</optgroup>
+<optgroup label="Volume & Low Cost">
+<option value="openai/gpt-4o-mini">GPT-4o-mini ($0.15 / $0.60)</option>
+<option value="minimax/minimax-m2.5">MiniMax M2.5 ($0.118 / $0.99)</option>
+<option value="nvidia/nemotron-3-super:free">Nemotron 3 Super (Free)</option>
+<option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (Free)</option>
+</optgroup>
 </select>
 <textarea id="system-prompt" class="glass-input" placeholder="Define system directives..."></textarea>
 <div class="metrics">
