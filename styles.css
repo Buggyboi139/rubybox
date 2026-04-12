@@ -1,0 +1,132 @@
+:root {
+  --glass-bg: rgba(40, 10, 15, 0.4);
+  --glass-border: rgba(220, 50, 80, 0.3);
+  --glass-glow: rgba(220, 50, 80, 0.15);
+  --text-main: #ffb3c1;
+  --text-muted: #a36b77;
+  --bg-dark: #0a0204;
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  background: var(--bg-dark);
+  color: var(--text-main);
+  font-family: monospace;
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 0 20px var(--glass-glow);
+}
+.glass-btn, .glass-input {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--glass-border);
+  color: var(--text-main);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: monospace;
+  outline: none;
+}
+.glass-btn:hover {
+  background: rgba(220, 50, 80, 0.2);
+  cursor: pointer;
+}
+#menu-toggle {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  z-index: 100;
+  font-size: 1.2rem;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+#sidebar {
+  width: 280px;
+  height: 100vh;
+  padding: 60px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  position: absolute;
+  z-index: 50;
+}
+#sidebar.open {
+  transform: translateX(0);
+}
+.metrics {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+}
+#chat-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin: 15px;
+  margin-left: 60px;
+  border-radius: 12px;
+  height: calc(100vh - 30px);
+}
+#chat-header {
+  padding: 15px;
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+}
+#chat-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.msg {
+  padding: 12px;
+  border-radius: 8px;
+  max-width: 85%;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+.msg.user {
+  align-self: flex-end;
+  background: rgba(220, 50, 80, 0.1);
+  border: 1px solid var(--glass-border);
+}
+.msg.ai {
+  align-self: flex-start;
+  background: rgba(0, 0, 0, 0.4);
+  border-left: 2px solid var(--glass-border);
+}
+.msg.system {
+  align-self: center;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  border: 1px dashed var(--glass-border);
+}
+#input-area {
+  padding: 15px;
+  border-top: 1px solid var(--glass-border);
+  display: flex;
+  gap: 10px;
+}
+#prompt {
+  flex: 1;
+  resize: none;
+  height: 50px;
+}
