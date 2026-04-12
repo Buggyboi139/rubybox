@@ -144,14 +144,13 @@
 
     <div id="voice-bottom-sheet" class="voice-sheet hidden">
         <div class="voice-sheet-content">
-            <h3 id="voice-status-text" style="color: #ffb6c1; margin-bottom: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">Initializing Model...</h3>
+            <h3 id="voice-status-text" style="color: #ffb6c1; margin-bottom: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; text-align: center;">Initializing Model...</h3>
             <canvas id="voice-visualizer"></canvas>
             <div class="voice-controls">
-                <button id="voice-interrupt-btn" class="voice-btn stop">Stop Audio</button>
                 <button id="voice-cancel-btn" class="voice-btn cancel">Close</button>
             </div>
             <div id="voice-progress-container" class="hidden" style="width: 100%; margin-top: 15px;">
-                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px;">Downloading Neural Models (Once per device)</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px; text-align: center;">Downloading Neural Models (Once per device)</div>
                 <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
                     <div id="voice-progress-bar" style="width: 0%; height: 100%; background: #ffb6c1; transition: width 0.2s;"></div>
                 </div>
