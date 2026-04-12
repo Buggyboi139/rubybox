@@ -15,6 +15,8 @@ const VoiceManager = (() => {
     let sttWorker = null;
     let isGenerating = false;
     let currentSessionId = 0;
+    let isStreamComplete = false;
+    let modelProgress = {};
     
     let onTranscription = null;
     let onStateChange = null;
@@ -28,10 +30,13 @@ const VoiceManager = (() => {
 
     self.onmessage = async (e) => {
         if (e.data.type === 'init') {
-            self.postMessage({ type: 'progress', data: { status: 'loading' } });
             try {
-                stt = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
-                tts = await pipeline('text-to-speech', 'Xenova/speecht5_tts');
+                stt = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
+                    progress_callback: data => self.postMessage({ type: 'download_progress', data })
+                });
+                tts = await pipeline('text-to-speech', 'Xenova/speecht5_tts', {
+                    progress_callback: data => self.postMessage({ type: 'download_progress', data })
+                });
                 self.postMessage({ type: 'ready' });
             } catch (err) {
                 self.postMessage({ type: 'error', message: err.message });
@@ -86,9 +91,22 @@ const VoiceManager = (() => {
             if (e.data.type === 'ready') {
                 document.getElementById('voice-progress-container').classList.add('hidden');
                 changeState('ready');
-            } else if (e.data.type === 'progress') {
+            } else if (e.data.type === 'download_progress') {
+                const data = e.data.data;
                 document.getElementById('voice-progress-container').classList.remove('hidden');
-                document.getElementById('voice-progress-bar').style.width = '50%';
+                if (data.status === 'progress') {
+                    modelProgress[data.file] = data.progress;
+                } else if (data.status === 'ready' || data.status === 'done') {
+                    modelProgress[data.file] = 100;
+                }
+                let total = 0;
+                let count = 0;
+                for (let file in modelProgress) {
+                    total += modelProgress[file];
+                    count++;
+                }
+                let avg = count > 0 ? total / count : 0;
+                document.getElementById('voice-progress-bar').style.width = avg + '%';
             } else if (e.data.type === 'transcription') {
                 if(onTranscription) onTranscription(e.data.text);
                 changeState('thinking');
@@ -98,10 +116,12 @@ const VoiceManager = (() => {
                 const trimmed = trimSilence(e.data.buffer, e.data.sampleRate);
                 scheduleAudio(trimmed, e.data.sampleRate);
                 processQueue();
+                checkConversationTurn();
             } else if (e.data.type === 'audio_error') {
                 if (e.data.sessionId !== currentSessionId) return;
                 isGenerating = false;
                 processQueue();
+                checkConversationTurn();
             }
         };
         sttWorker.postMessage({ type: 'init' });
@@ -125,6 +145,8 @@ const VoiceManager = (() => {
 
     async function startListening() {
         currentSessionId++;
+        isStreamComplete = false;
+        
         if (!globalAudioContext) {
             globalAudioContext = new AudioContext({ sampleRate: 16000 });
             globalAnalyser = globalAudioContext.createAnalyser();
@@ -132,7 +154,12 @@ const VoiceManager = (() => {
         }
         if (globalAudioContext.state === 'suspended') await globalAudioContext.resume();
 
-        interruptAndListen(true);
+        activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
+        activeSources = [];
+        ttsQueue = [];
+        sentenceBuffer = "";
+        isGenerating = false;
+        nextStartTime = 0;
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -219,6 +246,11 @@ const VoiceManager = (() => {
         sentenceBuffer = "";
     }
 
+    function markStreamComplete() {
+        isStreamComplete = true;
+        checkConversationTurn();
+    }
+
     function queueText(text) {
         ttsQueue.push(text);
         processQueue();
@@ -252,21 +284,19 @@ const VoiceManager = (() => {
         
         source.onended = () => {
             activeSources = activeSources.filter(s => s !== source);
-            if (activeSources.length === 0 && ttsQueue.length === 0 && !isGenerating && currentState !== 'listening') {
-                changeState('idle');
-            }
+            checkConversationTurn();
         };
     }
 
-    function interruptAndListen(skipStart = false) {
-        currentSessionId++;
-        activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
-        activeSources = [];
-        ttsQueue = [];
-        sentenceBuffer = "";
-        isGenerating = false;
-        nextStartTime = 0;
-        if(!skipStart) startListening();
+    function checkConversationTurn() {
+        if (activeSources.length === 0 && ttsQueue.length === 0 && !isGenerating && isStreamComplete) {
+            isStreamComplete = false;
+            startListening();
+        }
+    }
+
+    function interruptAndListen() {
+        startListening();
     }
 
     function stopPlayback() {
@@ -277,6 +307,7 @@ const VoiceManager = (() => {
         sentenceBuffer = "";
         isGenerating = false;
         nextStartTime = 0;
+        isStreamComplete = false;
         changeState('idle');
     }
 
@@ -288,6 +319,7 @@ const VoiceManager = (() => {
         sentenceBuffer = "";
         isGenerating = false;
         nextStartTime = 0;
+        isStreamComplete = false;
         if (microphone) microphone.disconnect();
         if (javascriptNode) javascriptNode.disconnect();
         clearTimeout(silenceTimer);
@@ -347,5 +379,5 @@ const VoiceManager = (() => {
         }
     }
 
-    return { init, startListening, receiveDelta, commitBuffer, interruptAndListen, stopPlayback, stopAll, getState: () => currentState };
+    return { init, startListening, receiveDelta, commitBuffer, markStreamComplete, interruptAndListen, stopPlayback, stopAll, getState: () => currentState };
 })();
