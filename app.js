@@ -29,7 +29,9 @@ window.AppManager = (() => {
         closeCharModal: document.getElementById('closeCharModal'),
         charList: document.getElementById('char-list'),
         newCharName: document.getElementById('newCharName'),
-        newCharAvatar: document.getElementById('newCharAvatar'),
+        newCharAvatarBtn: document.getElementById('newCharAvatarBtn'),
+        newCharAvatarFile: document.getElementById('newCharAvatarFile'),
+        newCharAvatarPreview: document.getElementById('newCharAvatarPreview'),
         newCharPrompt: document.getElementById('newCharPrompt'),
         saveCharBtn: document.getElementById('saveCharBtn'),
         profileBtn: document.getElementById('profile-btn'),
@@ -38,7 +40,6 @@ window.AppManager = (() => {
         saveProfileBtn: document.getElementById('saveProfileBtn'),
         voiceSheet: document.getElementById('voice-bottom-sheet'),
         voiceCancelBtn: document.getElementById('voice-cancel-btn'),
-        voiceInterruptBtn: document.getElementById('voice-interrupt-btn'),
         activeCharDisplay: document.getElementById('active-char-display'),
         activeCharImg: document.getElementById('active-char-img'),
         activeCharName: document.getElementById('active-char-name'),
@@ -62,6 +63,7 @@ window.AppManager = (() => {
     let currentConversationId = null;
     let listenersBound = false;
     let attachedImageBase64 = null;
+    let newCharAvatarBase64 = null;
     let isSidebarHidden = false;
     
     let state = {
@@ -245,14 +247,10 @@ window.AppManager = (() => {
             div.className = 'char-card';
             const avatarSrc = c.avatar || DEFAULT_AI_AVATAR;
             div.innerHTML = `
+                <button class="char-del" data-id="${c.id}">&times;</button>
                 <img src="${DOMPurify.sanitize(avatarSrc)}" alt="avatar">
-                <div class="char-info">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div class="char-title">${DOMPurify.sanitize(c.name)}</div>
-                        <button class="char-del" data-id="${c.id}" style="background:transparent; border:none; color:#fb7185; cursor:pointer; font-size:1.2rem;">×</button>
-                    </div>
-                    <div class="char-preview">${DOMPurify.sanitize(c.system_prompt)}</div>
-                </div>
+                <div class="char-title">${DOMPurify.sanitize(c.name)}</div>
+                <div class="char-preview-tooltip">${DOMPurify.sanitize(c.system_prompt)}</div>
             `;
             div.addEventListener('click', (e) => {
                 if (e.target.classList.contains('char-del')) return;
@@ -442,7 +440,15 @@ window.AppManager = (() => {
             UI.chatLog.appendChild(container);
         }
         const target = container.querySelector('.content');
-        target.innerHTML = DOMPurify.sanitize(marked.parse(extractTextFromContent(content)), { ADD_TAGS: ['think'] });
+        
+        let renderText = extractTextFromContent(content);
+        const openThinkCount = (renderText.match(/<think>/g) || []).length;
+        const closeThinkCount = (renderText.match(/<\/think>/g) || []).length;
+        if (openThinkCount > closeThinkCount) {
+            renderText += '</think>';
+        }
+        
+        target.innerHTML = DOMPurify.sanitize(marked.parse(renderText), { ADD_TAGS: ['think'] });
         if (isAutoScrolling) UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
         return target;
     }
@@ -518,12 +524,20 @@ window.AppManager = (() => {
                             VoiceManager.receiveDelta(delta);
                         }
 
-                        box.innerHTML = DOMPurify.sanitize(marked.parse(fullText), { ADD_TAGS: ['think'] });
+                        let renderText = fullText;
+                        const openThinkCount = (renderText.match(/<think>/g) || []).length;
+                        const closeThinkCount = (renderText.match(/<\/think>/g) || []).length;
+                        if (openThinkCount > closeThinkCount) renderText += '</think>';
+                        
+                        box.innerHTML = DOMPurify.sanitize(marked.parse(renderText), { ADD_TAGS: ['think'] });
                         if (isAutoScrolling) UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
                     } catch (e) {}
                 }
             }
-            if (fromVoice) VoiceManager.commitBuffer();
+            if (fromVoice) {
+                VoiceManager.commitBuffer();
+                VoiceManager.markStreamComplete();
+            }
             
             const streamContainer = document.getElementById('streaming-container');
             if (streamContainer) streamContainer.id = "";
@@ -583,9 +597,26 @@ window.AppManager = (() => {
         });
         UI.clearImgBtn.addEventListener('click', () => { attachedImageBase64 = null; UI.imagePreview.src = ''; UI.imagePreviewContainer.classList.add('hidden'); UI.imageUpload.value = ''; });
 
-        UI.voiceInterruptBtn.addEventListener('click', () => { 
-            VoiceManager.stopPlayback(); 
-            if(controller) controller.abort(); 
+        UI.newCharAvatarBtn.addEventListener('click', () => UI.newCharAvatarFile.click());
+        UI.newCharAvatarFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                newCharAvatarBase64 = event.target.result;
+                UI.newCharAvatarPreview.src = newCharAvatarBase64;
+                UI.newCharAvatarPreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        });
+
+        UI.voiceSheet.addEventListener('click', (e) => {
+            if (e.target.closest('#voice-cancel-btn') || e.target.closest('#voice-progress-container')) return;
+            const s = VoiceManager.getState();
+            if (s === 'speaking' || s === 'thinking') {
+                if(controller) controller.abort();
+                VoiceManager.interruptAndListen();
+            }
         });
 
         UI.voiceCancelBtn.addEventListener('click', () => { 
@@ -603,7 +634,7 @@ window.AppManager = (() => {
         });
 
         UI.sendBtn.addEventListener('click', () => execute(false));
-        UI.stopBtn.addEventListener('click', () => { if(controller) controller.abort(); });
+        UI.stopBtn.addEventListener('click', () => { if(controller) controller.abort(); VoiceManager.stopAll(); });
         
         UI.newChatBtn.addEventListener('click', () => { if(user) startNewChat(); });
 
@@ -614,12 +645,13 @@ window.AppManager = (() => {
         UI.saveCharBtn.addEventListener('click', async () => {
             if (!user) return alert("Please sign in first.");
             const name = UI.newCharName.value.trim();
-            const avatar = UI.newCharAvatar.value.trim();
+            const avatar = newCharAvatarBase64 || '';
             const prompt = UI.newCharPrompt.value.trim();
             if (name && prompt && user) {
                 const { error } = await window.supabaseClient.from('characters').insert([{ user_id: user.id, name, avatar, system_prompt: prompt }]);
                 if (error) return console.error(error);
-                UI.newCharName.value = ""; UI.newCharAvatar.value = ""; UI.newCharPrompt.value = "";
+                UI.newCharName.value = ""; UI.newCharPrompt.value = ""; newCharAvatarBase64 = null;
+                UI.newCharAvatarPreview.style.display = 'none'; UI.newCharAvatarPreview.src = '';
                 loadCharacters();
             }
         });
