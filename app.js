@@ -27,7 +27,11 @@ const UI = {
     activeCharDisplay: document.getElementById('active-char-display'),
     activeCharImg: document.getElementById('active-char-img'),
     activeCharName: document.getElementById('active-char-name'),
-    clearCharBtn: document.getElementById('clear-char-btn')
+    clearCharBtn: document.getElementById('clear-char-btn'),
+    tempSlider: document.getElementById('temp-slider'),
+    tempVal: document.getElementById('temp-val'),
+    ctxSlider: document.getElementById('ctx-slider'),
+    ctxVal: document.getElementById('ctx-val')
 };
 
 marked.setOptions({
@@ -44,7 +48,9 @@ let state = JSON.parse(localStorage.getItem('rb_glass_state')) || {
     history: [],
     memory: "",
     characters: [],
-    activeCharacter: null
+    activeCharacter: null,
+    temperature: 0.7,
+    contextLimit: 10
 };
 
 const DEFAULT_USER_AVATAR = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ffb6c1"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
@@ -93,6 +99,8 @@ UI.chatLog.addEventListener('scroll', () => {
 
 const save = () => {
     state.memory = UI.persistMem.value;
+    state.temperature = parseFloat(UI.tempSlider.value);
+    state.contextLimit = parseInt(UI.ctxSlider.value);
     localStorage.setItem('rb_glass_state', JSON.stringify(state));
     localStorage.setItem('rb_glass_key', UI.apiKey.value);
     localStorage.setItem('rb_glass_sys', UI.sysPrompt.value);
@@ -104,10 +112,27 @@ const load = () => {
     UI.sysPrompt.value = localStorage.getItem('rb_glass_sys') || "";
     UI.model.value = localStorage.getItem('rb_glass_model') || "deepseek/deepseek-chat";
     UI.persistMem.value = state.memory || "";
+    
+    UI.tempSlider.value = state.temperature !== undefined ? state.temperature : 0.7;
+    UI.tempVal.textContent = UI.tempSlider.value;
+    
+    UI.ctxSlider.value = state.contextLimit !== undefined ? state.contextLimit : 10;
+    UI.ctxVal.textContent = UI.ctxSlider.value;
+
     renderActiveCharacter();
     renderHistory();
     renderCharacters();
 };
+
+UI.tempSlider.addEventListener('input', (e) => {
+    UI.tempVal.textContent = e.target.value;
+    save();
+});
+
+UI.ctxSlider.addEventListener('input', (e) => {
+    UI.ctxVal.textContent = e.target.value;
+    save();
+});
 
 function renderActiveCharacter() {
     if (state.activeCharacter) {
@@ -162,6 +187,16 @@ function renderCharacters() {
     });
 }
 
+function copyToClipboard(text, btnElement) {
+    navigator.clipboard.writeText(text).then(() => {
+        const originalText = btnElement.innerText;
+        btnElement.innerText = 'Copied!';
+        setTimeout(() => {
+            btnElement.innerText = originalText;
+        }, 2000);
+    });
+}
+
 function addMessage(role, content, streaming = false) {
     let container = streaming ? document.getElementById('streaming-container') : null;
     if (!container) {
@@ -189,6 +224,16 @@ function addMessage(role, content, streaming = false) {
         if (!streaming && role !== 'system') {
             const actions = document.createElement('div');
             actions.className = 'action-row';
+
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'action-btn';
+            copyBtn.innerText = 'Copy';
+            copyBtn.onclick = () => {
+                const domNodes = Array.from(UI.chatLog.children);
+                const domIndex = domNodes.indexOf(container);
+                copyToClipboard(state.history[domIndex].content, copyBtn);
+            };
+            actions.appendChild(copyBtn);
 
             if (role === 'user') {
                 const editBtn = document.createElement('button');
@@ -258,6 +303,9 @@ async function healMemory() {
     if (state.history.length < 5) return;
     UI.status.textContent = "HEALING";
     const summaryPrompt = `CRITICAL: Summarize the conversation. Extract: 1. Completed tasks 2. Pending goals 3. Technical constraints.`;
+    
+    const recentHistory = state.history.slice(-parseInt(UI.ctxSlider.value));
+
     try {
         const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
@@ -267,7 +315,8 @@ async function healMemory() {
             },
             body: JSON.stringify({
                 model: UI.model.value,
-                messages: [...state.history, { role: "user", content: summaryPrompt }]
+                temperature: 0.2,
+                messages: [...recentHistory, { role: "user", content: summaryPrompt }]
             })
         });
         if (res.ok) {
@@ -298,9 +347,12 @@ async function execute() {
     UI.sendBtn.classList.add('hidden');
     UI.status.textContent = "THINKING";
     
+    const contextLimit = parseInt(UI.ctxSlider.value);
+    const recentHistory = state.history.slice(-contextLimit);
+
     const messages = [
         { role: "system", content: `${UI.sysPrompt.value}\n\n[MEMORY]\n${UI.persistMem.value}` },
-        ...state.history
+        ...recentHistory
     ];
     
     try {
@@ -313,6 +365,7 @@ async function execute() {
             signal: controller.signal,
             body: JSON.stringify({
                 model: UI.model.value,
+                temperature: parseFloat(UI.tempSlider.value),
                 messages: messages,
                 stream: true
             })
@@ -351,8 +404,6 @@ async function execute() {
         if (streamContainer) streamContainer.id = "";
         
         state.history.push({ role: 'assistant', content: fullText });
-        if (state.history.length > 20) await healMemory();
-        
     } catch (e) {
         if (e.name !== 'AbortError') addMessage('system', `ERROR: ${e.message}`);
     } finally {
@@ -417,7 +468,9 @@ UI.downloadBtn.addEventListener('click', async () => {
         memory: state.memory,
         sysPrompt: UI.sysPrompt.value,
         apiKey: UI.apiKey.value,
-        model: UI.model.value
+        model: UI.model.value,
+        temperature: state.temperature,
+        contextLimit: state.contextLimit
     };
     const rawJson = JSON.stringify(exportData);
     const pass = prompt("Enter a password to encrypt your vault, or leave blank to export unencrypted JSON:");
@@ -466,11 +519,18 @@ UI.importFile.addEventListener('change', async (e) => {
             state.characters = parsed.characters || [];
             state.activeCharacter = parsed.character || null;
             state.memory = parsed.memory || "";
+            state.temperature = parsed.temperature !== undefined ? parsed.temperature : 0.7;
+            state.contextLimit = parsed.contextLimit !== undefined ? parsed.contextLimit : 10;
             
             UI.persistMem.value = state.memory;
             if (parsed.sysPrompt !== undefined) UI.sysPrompt.value = parsed.sysPrompt;
             if (parsed.apiKey !== undefined) UI.apiKey.value = parsed.apiKey;
             if (parsed.model !== undefined) UI.model.value = parsed.model;
+            
+            UI.tempSlider.value = state.temperature;
+            UI.tempVal.textContent = state.temperature;
+            UI.ctxSlider.value = state.contextLimit;
+            UI.ctxVal.textContent = state.contextLimit;
             
             save();
             renderActiveCharacter();
