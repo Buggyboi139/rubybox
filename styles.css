@@ -92,6 +92,52 @@ select.glass-input option, select.glass-input optgroup {
     box-shadow: 0 0 15px rgba(255, 182, 193, 0.2);
 }
 
+.settings-panel {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border-glass);
+    padding: 12px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+}
+
+.slider-group {
+    margin-bottom: 10px;
+}
+.slider-group:last-child {
+    margin-bottom: 0;
+}
+.slider-group label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    background: transparent;
+}
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 16px;
+    width: 16px;
+    border-radius: 50%;
+    background: #ffb6c1;
+    cursor: pointer;
+    margin-top: -6px;
+    box-shadow: 0 0 10px rgba(255, 182, 193, 0.5);
+}
+input[type=range]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 4px;
+    cursor: pointer;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+}
+
 .primary-btn {
     background: var(--gradient-primary); color: #1a0f14; border: none;
     padding: 14px 24px; font-size: 1rem; font-weight: 800; border-radius: 12px;
