@@ -66,7 +66,13 @@ window.App.renderActiveCharacter = function() {
 
 window.App.handleVoiceStateChange = function(status) {
     const statusText = document.getElementById('voice-status-text');
-    if (status === 'listening') {
+    if (status === 'initializing') {
+        statusText.textContent = "Initializing...";
+        statusText.style.color = "#ffb6c1";
+    } else if (status === 'idle') {
+        statusText.textContent = "Ready - Tap Mic to Start";
+        statusText.style.color = "#ffb6c1";
+    } else if (status === 'listening') {
         statusText.textContent = "Listening...";
         statusText.style.color = "#06b6d4";
     } else if (status === 'thinking') {
@@ -75,9 +81,9 @@ window.App.handleVoiceStateChange = function(status) {
     } else if (status === 'speaking') {
         statusText.textContent = "Speaking...";
         statusText.style.color = "#10b981";
-    } else if (status === 'idle') {
-        statusText.textContent = "Idle";
-        statusText.style.color = "#ffb6c1";
+    } else if (status === 'error') {
+        statusText.textContent = "Error Occurred";
+        statusText.style.color = "#fb7185";
     }
 };
 
@@ -112,8 +118,9 @@ window.App.addMessage = function(role, content, streaming = false, msgId = null)
             actions.className = 'action-row';
 
             const copyBtn = document.createElement('button');
-            copyBtn.className = 'action-btn';
-            copyBtn.innerText = 'Copy';
+            copyBtn.className = 'action-icon-btn';
+            copyBtn.innerHTML = '⎘';
+            copyBtn.title = 'Copy';
             copyBtn.onclick = () => {
                 navigator.clipboard.writeText(window.App.extractTextFromContent(content));
                 window.App.showToast('Copied to clipboard');
@@ -122,8 +129,9 @@ window.App.addMessage = function(role, content, streaming = false, msgId = null)
 
             if (role === 'user') {
                 const branchBtn = document.createElement('button');
-                branchBtn.className = 'action-btn';
-                branchBtn.innerText = 'Branch';
+                branchBtn.className = 'action-icon-btn';
+                branchBtn.innerHTML = '⑂';
+                branchBtn.title = 'Branch';
                 branchBtn.onclick = () => {
                     const originalText = window.App.extractTextFromContent(content);
                     const editContainer = document.createElement('div');
@@ -191,8 +199,9 @@ window.App.addMessage = function(role, content, streaming = false, msgId = null)
                 actions.appendChild(branchBtn);
 
                 const editBtn = document.createElement('button');
-                editBtn.className = 'action-btn';
-                editBtn.innerText = 'Edit & Redo';
+                editBtn.className = 'action-icon-btn';
+                editBtn.innerHTML = '✎';
+                editBtn.title = 'Edit & Redo';
                 editBtn.onclick = async () => {
                     const domNodes = Array.from(window.App.UI.chatLog.children);
                     const domIndex = domNodes.indexOf(container);
@@ -208,8 +217,9 @@ window.App.addMessage = function(role, content, streaming = false, msgId = null)
                 actions.appendChild(editBtn);
 
                 const delBtn = document.createElement('button');
-                delBtn.className = 'action-btn danger';
-                delBtn.innerText = 'Delete';
+                delBtn.className = 'action-icon-btn danger';
+                delBtn.innerHTML = '×';
+                delBtn.title = 'Delete';
                 delBtn.onclick = async () => {
                     if(msgId) await window.supabaseClient.from('messages').delete().eq('id', msgId);
                     const index = window.App.state.history.findIndex(m => m.id === msgId);
@@ -221,8 +231,9 @@ window.App.addMessage = function(role, content, streaming = false, msgId = null)
 
             if (role === 'assistant') {
                 const regenBtn = document.createElement('button');
-                regenBtn.className = 'action-btn';
-                regenBtn.innerText = 'Redo';
+                regenBtn.className = 'action-icon-btn';
+                regenBtn.innerHTML = '↻';
+                regenBtn.title = 'Redo';
                 regenBtn.onclick = async () => {
                     const domNodes = Array.from(window.App.UI.chatLog.children);
                     const domIndex = domNodes.indexOf(container);
