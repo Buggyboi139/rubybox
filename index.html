@@ -28,43 +28,16 @@
             </div>
         </div>
 
-        <input type="password" id="api-key" placeholder="OpenRouter API Key" class="glass-input" style="margin-bottom: 15px;">
-        
-        <select id="model-select" class="glass-input" style="margin-bottom: 15px;">
-            <optgroup label="Anthropic">
-                <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-                <option value="anthropic/claude-3-opus">Claude 3 Opus</option>
-                <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
-            </optgroup>
-            <optgroup label="Google">
-                <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
-                <option value="google/gemini-pro-1.5">Gemini 1.5 Pro</option>
-                <option value="google/gemini-flash-1.5">Gemini 1.5 Flash</option>
-            </optgroup>
-            <optgroup label="OpenAI">
-                <option value="openai/gpt-4o">GPT-4o</option>
-                <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
-                <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
-            </optgroup>
-            <optgroup label="DeepSeek">
-                <option value="deepseek/deepseek-chat" selected>DeepSeek V3</option>
-                <option value="deepseek/deepseek-r1">DeepSeek R1</option>
-            </optgroup>
-            <optgroup label="Meta">
-                <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
-                <option value="meta-llama/llama-3-8b-instruct">Llama 3 8B</option>
-            </optgroup>
-        </select>
+        <textarea id="system-prompt" class="glass-input" placeholder="System Directives..." style="height: 80px; margin-bottom: 10px;"></textarea>
+        <textarea id="narrative-prompt" class="glass-input" placeholder="Narrative Context..." style="height: 80px; margin-bottom: 10px;"></textarea>
+        <textarea id="persistent-memory" class="glass-input" placeholder="Persistent Memory..." style="height: 80px; margin-bottom: 15px; border-color: rgba(254, 207, 239, 0.4);"></textarea>
 
-        <div class="settings-panel">
-            <div class="slider-group">
-                <label for="temp-slider">Temperature: <span id="temp-val">0.7</span></label>
-                <input type="range" id="temp-slider" min="0" max="2" step="0.1" value="0.7">
+        <div style="flex: 1; overflow-y: auto; margin-bottom: 10px; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Recent Chats</h3>
+                <button id="new-chat-btn" class="secondary-btn" style="padding: 4px 8px; font-size: 0.75rem;">+ New</button>
             </div>
-            <div class="slider-group">
-                <label for="ctx-slider">Context Memory: <span id="ctx-val">10</span> msgs</label>
-                <input type="range" id="ctx-slider" min="2" max="50" step="2" value="10">
-            </div>
+            <div id="conversations-list" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1;"></div>
         </div>
 
         <div id="active-char-display" class="hidden">
@@ -77,22 +50,65 @@
             <div id="status-badge" style="color: #ffb6c1; font-weight: 700;">READY</div>
         </div>
         
-        <button id="chars-btn" class="primary-btn" style="margin-bottom: 10px; background: rgba(255,255,255,0.05); color: #ffb6c1; border: 1px solid var(--border-highlight);">Characters Vault</button>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <button id="new-chat-btn" class="secondary-btn" style="color: #fb7185; border-color: rgba(251, 113, 133, 0.3);">New Chat</button>
-            <button id="conversations-btn" class="secondary-btn">History</button>
-        </div>
+        <button id="chars-btn" class="primary-btn" style="margin-bottom: 15px; background: rgba(255,255,255,0.05); color: #ffb6c1; border: 1px solid var(--border-highlight); margin-top: 0;">Characters Vault</button>
+
+        <details class="settings-panel" style="margin-bottom: 0;">
+            <summary style="color: #ffb6c1; cursor: pointer; font-weight: 600; font-size: 0.9rem; outline: none; margin-bottom: 10px;">Settings & Models</summary>
+            <div style="margin-top: 15px;">
+                <select id="model-select" class="glass-input" style="margin-bottom: 15px; font-size: 0.9rem !important; padding: 10px;">
+                    <optgroup label="Anthropic">
+                        <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                        <option value="anthropic/claude-3-opus">Claude 3 Opus</option>
+                        <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
+                    </optgroup>
+                    <optgroup label="Google">
+                        <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
+                        <option value="google/gemini-pro-1.5">Gemini 1.5 Pro</option>
+                        <option value="google/gemini-flash-1.5">Gemini 1.5 Flash</option>
+                    </optgroup>
+                    <optgroup label="OpenAI">
+                        <option value="openai/gpt-4o">GPT-4o</option>
+                        <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
+                        <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    </optgroup>
+                    <optgroup label="DeepSeek">
+                        <option value="deepseek/deepseek-chat" selected>DeepSeek V3</option>
+                        <option value="deepseek/deepseek-r1">DeepSeek R1</option>
+                    </optgroup>
+                    <optgroup label="Meta">
+                        <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
+                        <option value="meta-llama/llama-3-8b-instruct">Llama 3 8B</option>
+                    </optgroup>
+                </select>
+                <div class="slider-group">
+                    <label for="temp-slider">Temperature: <span id="temp-val">0.7</span></label>
+                    <input type="range" id="temp-slider" min="0" max="2" step="0.1" value="0.7">
+                </div>
+                <div class="slider-group">
+                    <label for="ctx-slider">Context Memory: <span id="ctx-val">10</span> msgs</label>
+                    <input type="range" id="ctx-slider" min="2" max="50" step="2" value="10">
+                </div>
+            </div>
+        </details>
     </aside>
 
     <main id="chat-wrapper">
         <div id="chat-log"></div>
         <div class="control-panel">
-            <textarea id="prompt" class="glass-input" placeholder="Message..." style="height: 60px; resize: none; flex: 1;"></textarea>
-            <div style="display: flex; flex-direction: column; gap: 5px; width: 100px;">
-                <button id="mic-btn" class="secondary-btn" style="flex: 1; padding: 0;">Mic</button>
-                <button id="stop-btn" class="secondary-btn hidden" style="flex: 1; color: #fb7185; border-color: rgba(251, 113, 133, 0.3); padding: 0;">Stop</button>
-                <button id="send-btn" class="primary-btn" style="flex: 1; padding: 0;">Send</button>
+            <button id="attach-img-btn" class="secondary-btn" style="height: 50px; width: 50px; padding: 0; display: flex; justify-content: center; align-items: center; font-size: 1.2rem;">📎</button>
+            <input type="file" id="image-upload" accept="image/png, image/jpeg, image/webp" class="hidden">
+            
+            <div id="image-preview-container" class="hidden">
+                <img id="image-preview" src="">
+                <button id="clear-img-btn">&times;</button>
+            </div>
+            
+            <textarea id="prompt" class="glass-input" placeholder="Message..." style="min-height: 50px; max-height: 150px; resize: none; flex: 1; padding: 14px;"></textarea>
+            
+            <div style="display: flex; gap: 5px;">
+                <button id="mic-btn" class="secondary-btn" style="height: 50px; width: 50px; padding: 0; display: flex; justify-content: center; align-items: center; font-size: 1.2rem;">🎤</button>
+                <button id="stop-btn" class="secondary-btn hidden" style="height: 50px; width: 50px; padding: 0; display: flex; justify-content: center; align-items: center; color: #fb7185; font-size: 1.2rem;">⏹</button>
+                <button id="send-btn" class="primary-btn" style="height: 50px; margin-top: 0; padding: 0 20px;">Send</button>
             </div>
         </div>
     </main>
@@ -120,14 +136,6 @@
             <input type="text" id="newCharAvatar" class="glass-input" placeholder="Avatar Image URL (Optional)" style="margin-bottom: 10px;">
             <textarea id="newCharPrompt" class="glass-input" placeholder="System Directives / Persona" style="height: 100px; margin-bottom: 15px;"></textarea>
             <button id="saveCharBtn" class="primary-btn" style="width: 100%; margin-top:0;">Save to Vault</button>
-        </div>
-    </div>
-
-    <div id="conversationsModal" class="modal-overlay hidden">
-        <div class="glass-panel">
-            <button id="closeConversationsModal" class="close-btn">&times;</button>
-            <h2 style="margin-bottom: 20px; font-size: 1.5rem;">Chat History</h2>
-            <div id="conversations-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;"></div>
         </div>
     </div>
 
