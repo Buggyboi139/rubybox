@@ -3,6 +3,11 @@ const UI = {
   sidebar: document.getElementById('sidebar'),
   apiKey: document.getElementById('api-key'),
   model: document.getElementById('model-select'),
+  systemPrompt: document.getElementById('system-prompt'),
+  charUpload: document.getElementById('char-upload'),
+  charNameDisplay: document.getElementById('char-name'),
+  importUpload: document.getElementById('import-upload'),
+  exportBtn: document.getElementById('export-btn'),
   clearBtn: document.getElementById('clear-btn'),
   compressBtn: document.getElementById('compress-btn'),
   chatLog: document.getElementById('chat-log'),
@@ -15,23 +20,23 @@ const UI = {
 let state = JSON.parse(localStorage.getItem('ruby_state')) || {
   messages: [],
   totalCost: 0,
-  compressionCount: 0
+  compressionCount: 0,
+  sysPrompt: "You are the RubyBox orchestrator.\n1. PLAN: Outline steps required.\n2. EXECUTE: Perform the step.\n3. REVIEW: Confirm output meets requirements.",
+  character: null
 };
 
-const SYSTEM_PROMPT = `You are the RubyBox orchestrator. 
-Strict protocol:
-1. PLAN: Outline steps required.
-2. EXECUTE: Perform the step.
-3. REVIEW: Confirm output meets requirements.
-Be concise. Do not apologize.`;
-
 function saveState() {
+  state.sysPrompt = UI.systemPrompt.value;
   localStorage.setItem('ruby_state', JSON.stringify(state));
   localStorage.setItem('ruby_key', UI.apiKey.value);
 }
 
 function loadState() {
   UI.apiKey.value = localStorage.getItem('ruby_key') || '';
+  UI.systemPrompt.value = state.sysPrompt || '';
+  if (state.character && state.character.name) {
+    UI.charNameDisplay.textContent = state.character.name;
+  }
   updateCostDisplay();
   renderMessages();
 }
@@ -45,6 +50,7 @@ UI.menuBtn.addEventListener('click', () => {
 });
 
 UI.apiKey.addEventListener('input', saveState);
+UI.systemPrompt.addEventListener('input', saveState);
 
 UI.clearBtn.addEventListener('click', () => {
   state.messages = [];
@@ -55,8 +61,56 @@ UI.clearBtn.addEventListener('click', () => {
   updateCostDisplay();
 });
 
-UI.compressBtn.addEventListener('click', () => {
-  triggerCompression();
+UI.compressBtn.addEventListener('click', triggerCompression);
+
+UI.exportBtn.addEventListener('click', () => {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+  const el = document.createElement('a');
+  el.setAttribute("href", dataStr);
+  el.setAttribute("download", `rubybox_state_${Date.now()}.json`);
+  document.body.appendChild(el);
+  el.click();
+  el.remove();
+});
+
+UI.importUpload.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const parsed = JSON.parse(event.target.result);
+      state = parsed;
+      loadState();
+      saveState();
+      UI.status.textContent = 'State Imported';
+    } catch (err) {
+      UI.status.textContent = 'ERR: BAD JSON';
+    }
+  };
+  reader.readAsText(file);
+});
+
+UI.charUpload.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const charData = JSON.parse(event.target.result);
+      const name = charData.name || charData.data?.name || "Unknown";
+      const desc = charData.description || charData.data?.description || "";
+      const persona = charData.personality || charData.data?.personality || "";
+      
+      state.character = { name, description: desc, personality: persona };
+      UI.charNameDisplay.textContent = name;
+      saveState();
+      UI.status.textContent = 'Char Loaded';
+    } catch (err) {
+      UI.status.textContent = 'ERR: CHAR PARSE';
+    }
+  };
+  reader.readAsText(file);
 });
 
 function renderMessages() {
@@ -69,6 +123,14 @@ function renderMessages() {
     UI.chatLog.appendChild(div);
   });
   UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
+}
+
+function buildSystemMessage() {
+  let content = UI.systemPrompt.value;
+  if (state.character) {
+    content += `\n\nCHARACTER IDENTITY:\nName: ${state.character.name}\nPersonality: ${state.character.personality}\nDescription: ${state.character.description}`;
+  }
+  return content;
 }
 
 async function triggerCompression() {
@@ -105,7 +167,7 @@ async function triggerCompression() {
       renderMessages();
     }
   } catch (e) {
-    console.error("Compression failed", e);
+    UI.status.textContent = 'ERR: COMPRESSION';
   }
   UI.status.textContent = 'Idle';
 }
@@ -124,7 +186,7 @@ async function orchestrate() {
   }
   
   let formattedMessages = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: buildSystemMessage() },
     ...state.messages.map(m => ({ role: m.role, content: m.content }))
   ];
 
