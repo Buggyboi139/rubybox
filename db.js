@@ -7,16 +7,19 @@ window.App.loadUserSettings = async function() {
         if(data.encrypted_api_key) window.App.UI.apiKey.value = data.encrypted_api_key; 
         if(data.system_prompt) window.App.UI.sysPrompt.value = data.system_prompt;
         if(data.narrative_prompt) window.App.UI.narrativePrompt.value = data.narrative_prompt;
+        if(data.voice_mode) window.App.state.settings.voiceMode = data.voice_mode;
     }
     window.App.UI.tempSlider.value = window.App.state.settings.temperature;
     window.App.UI.tempVal.textContent = window.App.state.settings.temperature;
     window.App.UI.ctxSlider.value = window.App.state.settings.contextLimit;
     window.App.UI.ctxVal.textContent = window.App.state.settings.contextLimit;
     window.App.UI.model.value = window.App.state.settings.defaultModel;
+    window.App.UI.voiceMode.value = window.App.state.settings.voiceMode;
 };
 
 window.App.saveUserSettings = async function() {
     if (!window.App.user) return;
+    window.App.state.settings.voiceMode = window.App.UI.voiceMode.value;
     await window.supabaseClient.from('user_settings').upsert({
         user_id: window.App.user.id,
         temperature: parseFloat(window.App.UI.tempSlider.value),
@@ -24,8 +27,25 @@ window.App.saveUserSettings = async function() {
         default_model: window.App.UI.model.value,
         encrypted_api_key: window.App.UI.apiKey.value,
         system_prompt: window.App.UI.sysPrompt.value,
-        narrative_prompt: window.App.UI.narrativePrompt.value
+        narrative_prompt: window.App.UI.narrativePrompt.value,
+        voice_mode: window.App.state.settings.voiceMode
     });
+};
+
+window.App.uploadImageToStorage = async function(base64) {
+    if (!base64) return null;
+    try {
+        const res = await fetch(base64);
+        const blob = await res.blob();
+        const ext = blob.type.split('/')[1] || 'png';
+        const fileName = `${window.App.user.id}/${Date.now()}.${ext}`;
+        const { error } = await window.supabaseClient.storage.from('chat-images').upload(fileName, blob);
+        if (error) throw error;
+        const { data } = window.supabaseClient.storage.from('chat-images').getPublicUrl(fileName);
+        return data.publicUrl;
+    } catch (e) {
+        return base64;
+    }
 };
 
 window.App.loadCharacters = async function() {
@@ -39,7 +59,10 @@ window.App.loadConversations = async function() {
     if (data && data.length > 0) {
         if (!window.App.currentConversationId || !data.find(c => c.id === window.App.currentConversationId)) window.App.currentConversationId = data[0].id;
         
+        const filterText = window.App.UI.chatSearch.value.toLowerCase();
+        
         data.forEach(conv => {
+            if (filterText && !conv.title.toLowerCase().includes(filterText)) return;
             const div = document.createElement('div');
             div.className = `chat-sidebar-item ${conv.id === window.App.currentConversationId ? 'active' : ''}`;
             div.dataset.id = conv.id;
@@ -76,6 +99,9 @@ window.App.startNewChat = async function() {
 };
 
 window.App.loadConversationHistory = async function(convId, renderList = true) {
+    if (window.App.currentConversationId !== convId || window.App.state.history.length === 0) {
+        window.App.renderSkeleton();
+    }
     window.App.currentConversationId = convId;
     const { data: convData } = await window.supabaseClient.from('conversations').select('*').eq('id', convId).single();
     if (convData) window.App.UI.persistMem.value = convData.summary_memory || "";
@@ -116,7 +142,7 @@ window.App.copyChat = async function(convId) {
             return `**${m.role.toUpperCase()}**:\n${txt}\n`;
         }).join('\n---\n');
         navigator.clipboard.writeText(text);
-        alert("Chat copied to clipboard.");
+        window.App.showToast("Chat copied to clipboard.");
     }
 };
 
