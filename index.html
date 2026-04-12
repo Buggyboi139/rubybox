@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>RubyBox | Glass</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
     <link rel="stylesheet" href="styles.css">
@@ -15,42 +17,34 @@
     <div id="sidebar-overlay" class="side-menu-overlay"></div>
     
     <aside id="sidebar" class="side-menu">
-        <div class="logo-container">
-            <span class="logo-text">RubyBox</span>
-        </div>
-        
+        <div class="logo-container"><span class="logo-text">RubyBox</span></div>
         <input type="password" id="api-key" placeholder="API Key" class="glass-input" style="margin-bottom: 15px;">
-        
         <select id="model-select" class="glass-input" style="margin-bottom: 15px;">
             <option value="deepseek/deepseek-r1">DeepSeek R1</option>
             <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
             <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
         </select>
-        
-        <textarea id="system-prompt" class="glass-input" placeholder="System Directives..." style="height: 120px; margin-bottom: 15px;"></textarea>
-        <textarea id="persistent-memory" class="glass-input" placeholder="Memory..." style="height: 120px; margin-bottom: 15px; border-color: rgba(254, 207, 239, 0.4);"></textarea>
-        
-        <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; font-size: 0.85rem; border: 1px solid var(--border-glass);">
+        <textarea id="system-prompt" class="glass-input" placeholder="System Directives..." style="height: 100px; margin-bottom: 15px;"></textarea>
+        <textarea id="persistent-memory" class="glass-input" placeholder="Memory..." style="height: 100px; margin-bottom: 15px; border-color: rgba(254, 207, 239, 0.4);"></textarea>
+        <div class="stats-panel">
             <div>Cost: <span id="cost-display">$0.00</span></div>
-            <div id="status-badge" style="color: #ffb6c1; font-weight: 700;">READY</div>
+            <div id="status-badge">READY</div>
         </div>
-
-        <button id="chars-btn" class="primary-btn" style="margin-bottom: 10px; background: rgba(255,255,255,0.05); color: #ffb6c1; border: 1px solid var(--border-highlight);">Characters</button>
-        
+        <button id="chars-btn" class="primary-btn" style="margin-bottom: 10px; background: rgba(255,255,255,0.05); color: #ffb6c1;">Vault</button>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <button id="clear-btn" class="secondary-btn" style="color: #fb7185; border-color: rgba(251, 113, 133, 0.3);">Purge</button>
+            <button id="clear-btn" class="secondary-btn" style="color: #fb7185;">Purge</button>
             <button id="compress-btn" class="secondary-btn">Heal</button>
         </div>
+        <button id="download-btn" class="secondary-btn" style="margin-top: 10px; width: 100%;">Export JSON</button>
     </aside>
 
-    <main id="chat-wrapper" style="flex: 1; display: flex; flex-direction: column; height: 100dvh; padding: 20px; position: relative;">
-        <div id="chat-log" style="flex: 1; overflow-y: auto; padding-bottom: 20px; padding-top: 50px;"></div>
-        
-        <div class="control-panel" style="padding: 15px; border-radius: 20px; display: flex; gap: 10px; max-width: 900px; margin: 0 auto; width: 100%;">
-            <textarea id="prompt" class="glass-input" placeholder="Message..." style="height: 60px; resize: none; flex: 1;"></textarea>
-            <div style="display: flex; flex-direction: column; gap: 5px; width: 100px;">
-                <button id="stop-btn" class="secondary-btn hidden" style="flex: 1; color: #fb7185; border-color: rgba(251, 113, 133, 0.3); padding: 0;">Stop</button>
-                <button id="send-btn" class="primary-btn" style="flex: 1; padding: 0;">Send</button>
+    <main id="chat-wrapper">
+        <div id="chat-log"></div>
+        <div class="control-panel">
+            <textarea id="prompt" class="glass-input" placeholder="Message..." rows="1"></textarea>
+            <div class="btn-group">
+                <button id="stop-btn" class="secondary-btn hidden">Stop</button>
+                <button id="send-btn" class="primary-btn">Send</button>
             </div>
         </div>
     </main>
@@ -58,17 +52,13 @@
     <div id="charModal" class="modal-overlay">
         <div class="glass-panel">
             <button id="closeCharModal" class="close-btn">&times;</button>
-            <h2 style="margin-bottom: 20px; font-size: 1.5rem;">Vault</h2>
-            
-            <div id="char-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 25px; max-height: 250px; overflow-y: auto;"></div>
-            
-            <h3 style="margin-bottom: 15px; font-size: 1rem; color: var(--text-muted);">Create New</h3>
+            <h2>Vault</h2>
+            <div id="char-list"></div>
             <input type="text" id="newCharName" class="glass-input" placeholder="Name" style="margin-bottom: 10px;">
-            <textarea id="newCharPrompt" class="glass-input" placeholder="System Directives" style="height: 100px; margin-bottom: 15px;"></textarea>
-            <button id="saveCharBtn" class="primary-btn" style="width: 100%;">Save to Vault</button>
+            <textarea id="newCharPrompt" class="glass-input" placeholder="Directives" style="height: 80px; margin-bottom: 15px;"></textarea>
+            <button id="saveCharBtn" class="primary-btn">Save to Vault</button>
         </div>
     </div>
-
     <script src="app.js"></script>
 </body>
 </html>
