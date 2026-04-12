@@ -30,7 +30,9 @@ select.glass-input option, select.glass-input optgroup { background-color: #0a05
 .mobile-title { font-size: 1.2rem; font-weight: 800; background: var(--gradient-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .hamburger-btn { display: none; }
 
-.side-menu { position: relative; width: 320px; height: 100%; flex-shrink: 0; background: linear-gradient(145deg, rgba(30, 15, 20, 0.98) 0%, rgba(15, 7, 10, 0.98) 100%); border-right: 1px solid var(--border-highlight); z-index: 2001; padding: 25px 20px; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; box-shadow: 10px 0 30px rgba(0,0,0,0.8); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.side-menu { position: relative; width: 320px; height: 100%; flex-shrink: 0; background: linear-gradient(145deg, rgba(30, 15, 20, 0.98) 0%, rgba(15, 7, 10, 0.98) 100%); border-right: 1px solid var(--border-highlight); z-index: 2001; padding: 25px 20px; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; box-shadow: 10px 0 30px rgba(0,0,0,0.8); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.side-menu.hidden-sidebar { margin-left: -320px; }
+
 .side-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; opacity: 0; pointer-events: none; transition: 0.3s; }
 .side-menu-overlay.show { opacity: 1; pointer-events: all; }
 
@@ -148,7 +150,21 @@ think { display: block; padding: 15px; margin: 15px 0; border-left: 3px solid rg
     .msg-container.user { margin-right: 10px; }
     .chat-sidebar-actions { display: flex; } 
     
-    .side-menu { padding-top: 15px; padding-bottom: 40px; z-index: 3001; }
+    .side-menu { 
+        padding-top: 15px; 
+        padding-bottom: 40px; 
+        z-index: 3001; 
+        position: fixed; 
+        left: 0;
+        top: 0;
+        bottom: 0;
+        transform: translateX(-100%); 
+    }
+
+    .side-menu.show {
+        transform: translateX(0); 
+    }
+    
     .side-menu-overlay { z-index: 3000; }
     
     #mobile-sidebar-close { 
