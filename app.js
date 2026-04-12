@@ -10,7 +10,6 @@ window.AppManager = (() => {
         imagePreviewContainer: document.getElementById('image-preview-container'),
         imagePreview: document.getElementById('image-preview'),
         clearImgBtn: document.getElementById('clear-img-btn'),
-        status: document.getElementById('status-badge'),
         model: document.getElementById('model-select'),
         apiKey: document.getElementById('api-key'),
         sysPrompt: document.getElementById('system-prompt'),
@@ -33,9 +32,13 @@ window.AppManager = (() => {
         newCharAvatar: document.getElementById('newCharAvatar'),
         newCharPrompt: document.getElementById('newCharPrompt'),
         saveCharBtn: document.getElementById('saveCharBtn'),
-        voiceModal: document.getElementById('voiceModal'),
-        cancelVoiceBtn: document.getElementById('cancel-voice-btn'),
-        acceptVoiceBtn: document.getElementById('accept-voice-btn'),
+        profileBtn: document.getElementById('profile-btn'),
+        profileModal: document.getElementById('profileModal'),
+        closeProfileModal: document.getElementById('closeProfileModal'),
+        saveProfileBtn: document.getElementById('saveProfileBtn'),
+        voiceSheet: document.getElementById('voice-bottom-sheet'),
+        voiceCancelBtn: document.getElementById('voice-cancel-btn'),
+        voiceInterruptBtn: document.getElementById('voice-interrupt-btn'),
         activeCharDisplay: document.getElementById('active-char-display'),
         activeCharImg: document.getElementById('active-char-img'),
         activeCharName: document.getElementById('active-char-name'),
@@ -55,12 +58,10 @@ window.AppManager = (() => {
 
     let controller = null;
     let isAutoScrolling = true;
-    let isVoiceModeActive = false;
     let user = null;
     let currentConversationId = null;
     let listenersBound = false;
     let attachedImageBase64 = null;
-    let isSidebarHidden = false;
     
     let state = {
         history: [],
@@ -69,46 +70,33 @@ window.AppManager = (() => {
         settings: {
             temperature: 0.7,
             contextLimit: 10,
-            voiceAccepted: false,
             defaultModel: "deepseek/deepseek-chat"
         }
     };
 
     async function initialize(authenticatedUser) {
         user = authenticatedUser;
-        
-        if (!listenersBound) {
-            setupEventListeners();
-            listenersBound = true;
-        }
-
+        if (!listenersBound) { setupEventListeners(); listenersBound = true; }
         if (!user) return;
 
         await loadUserSettings();
         await loadCharacters();
         await loadConversations();
 
-        if (!currentConversationId) {
-            await startNewChat();
-        }
-        
-        if (state.settings.voiceAccepted) {
-            VoiceManager.init(handleTranscription, handleVoiceStateChange);
-        }
+        if (!currentConversationId) await startNewChat();
+        VoiceManager.init(handleTranscriptionSubmit, handleVoiceStateChange);
     }
 
     async function loadUserSettings() {
         const { data } = await window.supabaseClient.from('user_settings').select('*').eq('user_id', user.id).single();
         if (data) {
-            state.settings.temperature = data.temperature;
-            state.settings.contextLimit = data.context_limit;
-            state.settings.voiceAccepted = data.voice_accepted;
+            state.settings.temperature = data.temperature ?? 0.7;
+            state.settings.contextLimit = data.context_limit ?? 10;
             if(data.default_model) state.settings.defaultModel = data.default_model;
             if(data.encrypted_api_key) UI.apiKey.value = data.encrypted_api_key; 
             if(data.system_prompt) UI.sysPrompt.value = data.system_prompt;
             if(data.narrative_prompt) UI.narrativePrompt.value = data.narrative_prompt;
         }
-        
         UI.tempSlider.value = state.settings.temperature;
         UI.tempVal.textContent = state.settings.temperature;
         UI.ctxSlider.value = state.settings.contextLimit;
@@ -123,7 +111,6 @@ window.AppManager = (() => {
             temperature: parseFloat(UI.tempSlider.value),
             context_limit: parseInt(UI.ctxSlider.value),
             default_model: UI.model.value,
-            voice_accepted: state.settings.voiceAccepted,
             encrypted_api_key: UI.apiKey.value,
             system_prompt: UI.sysPrompt.value,
             narrative_prompt: UI.narrativePrompt.value
@@ -132,18 +119,14 @@ window.AppManager = (() => {
 
     async function loadCharacters() {
         const { data } = await window.supabaseClient.from('characters').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-        if (data) {
-            state.characters = data;
-            renderCharacters();
-        }
+        if (data) { state.characters = data; renderCharacters(); }
     }
 
     async function loadConversations() {
         const { data } = await window.supabaseClient.from('conversations').select('*').eq('user_id', user.id).order('updated_at', { ascending: false });
-        const list = UI.conversationsList;
-        list.innerHTML = "";
+        UI.conversationsList.innerHTML = "";
         if (data && data.length > 0) {
-            if (!currentConversationId) currentConversationId = data[0].id;
+            if (!currentConversationId || !data.find(c => c.id === currentConversationId)) currentConversationId = data[0].id;
             
             data.forEach(conv => {
                 const div = document.createElement('div');
@@ -155,12 +138,12 @@ window.AppManager = (() => {
                         <div class="chat-sidebar-date">${new Date(conv.updated_at).toLocaleDateString()}</div>
                     </div>
                     <div class="chat-sidebar-actions">
-                        <button class="chat-sidebar-btn" title="Fork Chat" onclick="window.AppManager.forkChat('${conv.id}')">⑂</button>
-                        <button class="chat-sidebar-btn" title="Copy Chat" onclick="window.AppManager.copyChat('${conv.id}')">⎘</button>
-                        <button class="chat-sidebar-btn danger" title="Delete Chat" onclick="window.AppManager.deleteChat('${conv.id}')">&times;</button>
+                        <button class="chat-sidebar-btn" title="Fork Chat" onclick="event.stopPropagation(); window.AppManager.forkChat('${conv.id}')">⑂</button>
+                        <button class="chat-sidebar-btn" title="Copy Chat" onclick="event.stopPropagation(); window.AppManager.copyChat('${conv.id}')">⎘</button>
+                        <button class="chat-sidebar-btn danger" title="Delete Chat" onclick="event.stopPropagation(); window.AppManager.deleteChat('${conv.id}')">&times;</button>
                     </div>
                 `;
-                list.appendChild(div);
+                UI.conversationsList.appendChild(div);
             });
             if (currentConversationId) loadConversationHistory(currentConversationId, false);
         } else {
@@ -171,24 +154,20 @@ window.AppManager = (() => {
     async function startNewChat() {
         state.history = [];
         UI.chatLog.innerHTML = "";
+        UI.narrativePrompt.value = "";
         UI.persistMem.value = "";
         const { data } = await window.supabaseClient.from('conversations').insert([{ user_id: user.id, title: 'New Chat' }]).select().single();
         if (data) {
             currentConversationId = data.id;
             loadConversations();
         }
-        if(window.innerWidth <= 768) {
-            UI.sidebar.classList.remove('show');
-            UI.overlay.classList.remove('show');
-        }
+        if(window.innerWidth <= 768) { UI.sidebar.classList.remove('show'); UI.overlay.classList.remove('show'); }
     }
 
     async function loadConversationHistory(convId, renderList = true) {
         currentConversationId = convId;
         const { data: convData } = await window.supabaseClient.from('conversations').select('*').eq('id', convId).single();
-        if (convData) {
-            UI.persistMem.value = convData.summary_memory || "";
-        }
+        if (convData) UI.persistMem.value = convData.summary_memory || "";
 
         const { data } = await window.supabaseClient.from('messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true });
         state.history = [];
@@ -196,35 +175,22 @@ window.AppManager = (() => {
         if (data) {
             data.forEach(msg => {
                 let parsedContent = msg.content;
-                try {
-                    parsedContent = JSON.parse(msg.content);
-                } catch(e) {}
+                try { parsedContent = JSON.parse(msg.content); } catch(e) {}
                 state.history.push({ role: msg.role, content: parsedContent, id: msg.id });
                 addMessage(msg.role, parsedContent, false, msg.id);
             });
         }
-        
         if (renderList) loadConversations();
-        
-        if(window.innerWidth <= 768) {
-            UI.sidebar.classList.remove('show');
-            UI.overlay.classList.remove('show');
-        }
+        if(window.innerWidth <= 768) { UI.sidebar.classList.remove('show'); UI.overlay.classList.remove('show'); }
     }
 
     async function forkChat(convId) {
         if(!user) return;
         const { data: oldMsgs } = await window.supabaseClient.from('messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true });
         const { data: convData } = await window.supabaseClient.from('conversations').insert([{ user_id: user.id, title: 'Forked Chat' }]).select().single();
-        
         if (convData && oldMsgs) {
             for (const msg of oldMsgs) {
-                await window.supabaseClient.from('messages').insert([{
-                    conversation_id: convData.id,
-                    user_id: user.id,
-                    role: msg.role,
-                    content: msg.content
-                }]);
+                await window.supabaseClient.from('messages').insert([{ conversation_id: convData.id, user_id: user.id, role: msg.role, content: msg.content }]);
             }
             loadConversationHistory(convData.id);
         }
@@ -246,22 +212,18 @@ window.AppManager = (() => {
     async function deleteChat(convId) {
         if(!confirm("Delete this chat permanently?")) return;
         await window.supabaseClient.from('conversations').delete().eq('id', convId);
-        if (currentConversationId === convId) {
-            currentConversationId = null;
-        }
+        if (currentConversationId === convId) currentConversationId = null;
         loadConversations();
     }
 
     async function generateChatTitle(firstPrompt, convId) {
-        const { data: { session } } = await window.supabaseClient.auth.getSession();
-        if(!session) return;
         try {
-            const response = await fetch(`${window.supabaseClient.supabaseUrl}/functions/v1/chat`, {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
-                headers: { "Authorization": `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+                headers: { "Authorization": `Bearer ${UI.apiKey.value}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
                     model: "google/gemini-2.0-flash-001",
-                    messages: [{ role: "user", content: `Summarize this into a 3-5 word title: ${firstPrompt}` }],
+                    messages: [{ role: "user", content: `Summarize this into a 3-5 word title. Only output the title: ${firstPrompt}` }],
                     stream: false
                 })
             });
@@ -322,31 +284,22 @@ window.AppManager = (() => {
     }
 
     function handleVoiceStateChange(status) {
-        if (status === 'loading') {
-            UI.micBtn.innerText = '⏳';
-            UI.micBtn.disabled = true;
-        } else if (status === 'ready') {
-            UI.micBtn.innerText = '🎤';
-            UI.micBtn.classList.remove('recording');
-            UI.micBtn.disabled = false;
-        } else if (status === 'recording') {
-            UI.micBtn.innerText = '⏹';
-            UI.micBtn.classList.add('recording');
-            isVoiceModeActive = true;
+        const statusText = document.getElementById('voice-status-text');
+        if (status === 'listening') {
+            statusText.textContent = "Listening...";
+            statusText.style.color = "#ffb6c1";
         } else if (status === 'thinking') {
-            UI.micBtn.innerText = '⏳';
-            UI.micBtn.classList.remove('recording');
-            UI.micBtn.disabled = true;
-        } else if (status === 'error') {
-            UI.micBtn.innerText = '⚠️';
-            UI.micBtn.classList.remove('recording');
-            UI.micBtn.disabled = false;
+            statusText.textContent = "Thinking...";
+            statusText.style.color = "#38bdf8";
+        } else if (status === 'speaking') {
+            statusText.textContent = "Speaking...";
+            statusText.style.color = "#34d399";
         }
     }
 
-    function handleTranscription(text) {
+    function handleTranscriptionSubmit(text) {
         UI.prompt.value = text.trim();
-        if (UI.prompt.value) execute();
+        if (UI.prompt.value) execute(true);
     }
 
     function extractTextFromContent(content) {
@@ -376,17 +329,10 @@ window.AppManager = (() => {
 
             const avatar = document.createElement('img');
             avatar.className = 'msg-avatar';
-            if (role === 'user') {
-                avatar.src = DEFAULT_USER_AVATAR;
-            } else if (role === 'assistant') {
-                avatar.src = (state.activeCharacter && state.activeCharacter.avatar) ? state.activeCharacter.avatar : DEFAULT_AI_AVATAR;
-            } else {
-                avatar.style.display = 'none';
-            }
+            avatar.src = role === 'user' ? DEFAULT_USER_AVATAR : ((state.activeCharacter && state.activeCharacter.avatar) ? state.activeCharacter.avatar : DEFAULT_AI_AVATAR);
 
             const msgDiv = document.createElement('div');
             msgDiv.className = `msg ${role}`;
-            
             const inner = document.createElement('div');
             inner.className = 'content';
             
@@ -397,7 +343,6 @@ window.AppManager = (() => {
                 img.className = 'multimodal-img';
                 msgDiv.appendChild(img);
             }
-            
             msgDiv.appendChild(inner);
 
             if (!streaming && role !== 'system') {
@@ -407,11 +352,7 @@ window.AppManager = (() => {
                 const copyBtn = document.createElement('button');
                 copyBtn.className = 'action-btn';
                 copyBtn.innerText = 'Copy';
-                copyBtn.onclick = () => {
-                    navigator.clipboard.writeText(extractTextFromContent(content));
-                    copyBtn.innerText = 'Copied!';
-                    setTimeout(() => copyBtn.innerText = 'Copy', 2000);
-                };
+                copyBtn.onclick = () => { navigator.clipboard.writeText(extractTextFromContent(content)); };
                 actions.appendChild(copyBtn);
 
                 if (role === 'user') {
@@ -421,32 +362,24 @@ window.AppManager = (() => {
                     branchBtn.onclick = async () => {
                         const newPromptText = prompt("Enter new prompt for this branch:");
                         if (!newPromptText) return;
-
                         const domNodes = Array.from(UI.chatLog.children);
                         const domIndex = domNodes.indexOf(container);
                         const historyToKeep = state.history.slice(0, domIndex);
 
                         const { data: convData } = await window.supabaseClient.from('conversations').insert([{ user_id: user.id, title: 'Branched Chat' }]).select().single();
                         if (!convData) return;
-
                         currentConversationId = convData.id;
                         state.history = [];
                         UI.chatLog.innerHTML = "";
 
                         for (const oldMsg of historyToKeep) {
                             const dbContent = typeof oldMsg.content === 'string' ? oldMsg.content : JSON.stringify(oldMsg.content);
-                            const { data: msgData } = await window.supabaseClient.from('messages').insert([{
-                                conversation_id: currentConversationId,
-                                user_id: user.id,
-                                role: oldMsg.role,
-                                content: dbContent
-                            }]).select().single();
+                            const { data: msgData } = await window.supabaseClient.from('messages').insert([{ conversation_id: currentConversationId, user_id: user.id, role: oldMsg.role, content: dbContent }]).select().single();
                             if (msgData) {
                                 state.history.push({ role: oldMsg.role, content: oldMsg.content, id: msgData.id });
                                 addMessage(oldMsg.role, oldMsg.content, false, msgData.id);
                             }
                         }
-
                         UI.prompt.value = newPromptText;
                         loadConversations();
                         execute();
@@ -460,18 +393,13 @@ window.AppManager = (() => {
                         const domNodes = Array.from(UI.chatLog.children);
                         const domIndex = domNodes.indexOf(container);
                         UI.prompt.value = extractTextFromContent(state.history[domIndex].content);
-                        UI.prompt.style.height = 'auto';
-                        UI.prompt.style.height = (UI.prompt.scrollHeight) + 'px';
+                        UI.prompt.style.height = 'auto'; UI.prompt.style.height = (UI.prompt.scrollHeight) + 'px';
                         
                         const msgsToDelete = state.history.slice(domIndex);
-                        for(const m of msgsToDelete) {
-                            if(m.id) await window.supabaseClient.from('messages').delete().eq('id', m.id);
-                        }
+                        for(const m of msgsToDelete) if(m.id) await window.supabaseClient.from('messages').delete().eq('id', m.id);
                         
                         state.history = state.history.slice(0, domIndex);
-                        while(UI.chatLog.children.length > domIndex) {
-                            UI.chatLog.lastChild.remove();
-                        }
+                        while(UI.chatLog.children.length > domIndex) UI.chatLog.lastChild.remove();
                     };
                     actions.appendChild(editBtn);
 
@@ -494,37 +422,27 @@ window.AppManager = (() => {
                     regenBtn.onclick = async () => {
                         const domNodes = Array.from(UI.chatLog.children);
                         const domIndex = domNodes.indexOf(container);
-                        
                         const msgsToDelete = state.history.slice(domIndex);
-                        for(const m of msgsToDelete) {
-                            if(m.id) await window.supabaseClient.from('messages').delete().eq('id', m.id);
-                        }
-
+                        for(const m of msgsToDelete) if(m.id) await window.supabaseClient.from('messages').delete().eq('id', m.id);
                         state.history = state.history.slice(0, domIndex);
-                        while(UI.chatLog.children.length > domIndex) {
-                            UI.chatLog.lastChild.remove();
-                        }
+                        while(UI.chatLog.children.length > domIndex) UI.chatLog.lastChild.remove();
                         execute();
                     };
                     actions.appendChild(regenBtn);
                 }
-
                 msgDiv.appendChild(actions);
             }
-            
             container.appendChild(avatar);
             container.appendChild(msgDiv);
             UI.chatLog.appendChild(container);
         }
-        
         const target = container.querySelector('.content');
         target.innerHTML = DOMPurify.sanitize(marked.parse(extractTextFromContent(content)), { ADD_TAGS: ['think'] });
-        
         if (isAutoScrolling) UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
         return target;
     }
 
-    async function execute() {
+    async function execute(fromVoice = false) {
         if (!user) return alert("Please sign in first.");
 
         const input = UI.prompt.value.trim();
@@ -539,56 +457,34 @@ window.AppManager = (() => {
             }
 
             const dbContent = typeof contentPayload === 'string' ? contentPayload : JSON.stringify(contentPayload);
-
-            const { data, error } = await window.supabaseClient.from('messages').insert([{
-                conversation_id: currentConversationId,
-                user_id: user.id,
-                role: 'user',
-                content: dbContent
-            }]).select().single();
-            
+            const { data, error } = await window.supabaseClient.from('messages').insert([{ conversation_id: currentConversationId, user_id: user.id, role: 'user', content: dbContent }]).select().single();
             if (error) throw error;
-            
             if(data) {
                 state.history.push({ role: 'user', content: contentPayload, id: data.id });
                 addMessage('user', contentPayload, false, data.id);
             }
-            
-            if(state.history.length === 1) {
-                generateChatTitle(input, currentConversationId);
-            }
+            if(state.history.length === 1) generateChatTitle(input, currentConversationId);
 
-            UI.prompt.value = "";
-            UI.prompt.style.height = '60px';
-            UI.clearImgBtn.click();
+            UI.prompt.value = ""; UI.prompt.style.height = '50px'; UI.clearImgBtn.click();
         }
         
         controller = new AbortController();
-        UI.stopBtn.classList.remove('hidden');
-        UI.sendBtn.classList.add('hidden');
-        UI.status.textContent = "THINKING";
+        if (!fromVoice) {
+            UI.stopBtn.classList.remove('hidden');
+            UI.sendBtn.classList.add('hidden');
+        }
         
         const limit = parseInt(UI.ctxSlider.value);
         const recent = state.history.slice(-limit).map(m => ({ role: m.role, content: m.content }));
-        
         const systemContent = `${UI.sysPrompt.value}\n\n[NARRATIVE CONTEXT]\n${UI.narrativePrompt.value}\n\n[PERSISTENT MEMORY]\n${UI.persistMem.value}`;
         const messages = [{ role: "system", content: systemContent }, ...recent];
         
         try {
-            const { data: { session } } = await window.supabaseClient.auth.getSession();
-            const response = await fetch(`${window.supabaseClient.supabaseUrl}/functions/v1/chat`, {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${session.access_token}`,
-                    "Content-Type": "application/json"
-                },
+                headers: { "Authorization": `Bearer ${UI.apiKey.value}`, "Content-Type": "application/json" },
                 signal: controller.signal,
-                body: JSON.stringify({
-                    model: UI.model.value,
-                    temperature: parseFloat(UI.tempSlider.value),
-                    messages: messages,
-                    stream: true
-                })
+                body: JSON.stringify({ model: UI.model.value, temperature: parseFloat(UI.tempSlider.value), messages: messages, stream: true })
             });
             
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -598,6 +494,7 @@ window.AppManager = (() => {
             let fullText = "";
             let buffer = "";
             const box = addMessage('assistant', "", true);
+            let sentenceBuffer = "";
             
             while (true) {
                 const { done, value } = await reader.read();
@@ -612,32 +509,28 @@ window.AppManager = (() => {
                         const data = JSON.parse(cleanLine);
                         const delta = data.choices[0].delta.content || "";
                         fullText += delta;
+                        sentenceBuffer += delta;
+
+                        if (fromVoice && /[.!?]/.test(delta)) {
+                            VoiceManager.queueText(sentenceBuffer.trim());
+                            sentenceBuffer = "";
+                        }
+
                         box.innerHTML = DOMPurify.sanitize(marked.parse(fullText), { ADD_TAGS: ['think'] });
                         if (isAutoScrolling) UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
                     } catch (e) {}
                 }
             }
+            if (fromVoice && sentenceBuffer.trim()) VoiceManager.queueText(sentenceBuffer.trim());
             
             const streamContainer = document.getElementById('streaming-container');
             if (streamContainer) streamContainer.id = "";
             
-            const { data: aiData, error: aiError } = await window.supabaseClient.from('messages').insert([{
-                conversation_id: currentConversationId,
-                user_id: user.id,
-                role: 'assistant',
-                content: fullText
-            }]).select().single();
-
+            const { data: aiData, error: aiError } = await window.supabaseClient.from('messages').insert([{ conversation_id: currentConversationId, user_id: user.id, role: 'assistant', content: fullText }]).select().single();
             if (aiError) throw aiError;
-
             if(aiData) {
                 state.history.push({ role: 'assistant', content: fullText, id: aiData.id });
                 if(streamContainer) streamContainer.dataset.id = aiData.id;
-            }
-
-            if (isVoiceModeActive) {
-                VoiceManager.speakText(fullText);
-                isVoiceModeActive = false;
             }
 
         } catch (e) {
@@ -645,28 +538,18 @@ window.AppManager = (() => {
         } finally {
             UI.stopBtn.classList.add('hidden');
             UI.sendBtn.classList.remove('hidden');
-            UI.status.textContent = "READY";
             controller = null;
         }
     }
 
     function setupEventListeners() {
-        UI.chatLog.addEventListener('scroll', () => {
-            isAutoScrolling = UI.chatLog.scrollHeight - UI.chatLog.scrollTop - UI.chatLog.clientHeight < 50;
-        });
-
-        UI.menuBtn.addEventListener('click', () => {
-            if(window.innerWidth > 768) {
-                isSidebarHidden = !isSidebarHidden;
-                if(isSidebarHidden) UI.sidebar.classList.add('hidden-sidebar');
-                else UI.sidebar.classList.remove('hidden-sidebar');
-            } else {
-                UI.sidebar.classList.toggle('show');
-                UI.overlay.classList.toggle('show');
-            }
-        });
-        
+        UI.chatLog.addEventListener('scroll', () => { isAutoScrolling = UI.chatLog.scrollHeight - UI.chatLog.scrollTop - UI.chatLog.clientHeight < 50; });
+        UI.menuBtn.addEventListener('click', () => { UI.sidebar.classList.toggle('show'); UI.overlay.classList.toggle('show'); });
         UI.overlay.addEventListener('click', () => { UI.sidebar.classList.remove('show'); UI.overlay.classList.remove('show'); });
+
+        UI.profileBtn.addEventListener('click', () => { UI.profileModal.classList.remove('hidden'); UI.sidebar.classList.remove('show'); UI.overlay.classList.remove('show'); });
+        UI.closeProfileModal.addEventListener('click', () => UI.profileModal.classList.add('hidden'));
+        UI.saveProfileBtn.addEventListener('click', () => { saveUserSettings(); UI.profileModal.classList.add('hidden'); });
 
         UI.sysPrompt.addEventListener('change', saveUserSettings);
         UI.narrativePrompt.addEventListener('change', saveUserSettings);
@@ -687,33 +570,20 @@ window.AppManager = (() => {
             };
             reader.readAsDataURL(file);
         });
-        UI.clearImgBtn.addEventListener('click', () => {
-            attachedImageBase64 = null;
-            UI.imagePreview.src = '';
-            UI.imagePreviewContainer.classList.add('hidden');
-            UI.imageUpload.value = '';
-        });
+        UI.clearImgBtn.addEventListener('click', () => { attachedImageBase64 = null; UI.imagePreview.src = ''; UI.imagePreviewContainer.classList.add('hidden'); UI.imageUpload.value = ''; });
 
-        UI.cancelVoiceBtn.addEventListener('click', () => UI.voiceModal.classList.add('hidden'));
-        UI.acceptVoiceBtn.addEventListener('click', () => {
-            if (!user) return alert("Please sign in first.");
-            state.settings.voiceAccepted = true;
-            saveUserSettings();
-            UI.voiceModal.classList.add('hidden');
-            VoiceManager.init(handleTranscription, handleVoiceStateChange);
-        });
+        UI.voiceCancelBtn.addEventListener('click', () => { UI.voiceSheet.classList.remove('show'); setTimeout(() => UI.voiceSheet.classList.add('hidden'), 400); VoiceManager.stopAll(); if(controller) controller.abort(); });
+        UI.voiceInterruptBtn.addEventListener('click', () => { VoiceManager.stopPlayback(); if(controller) controller.abort(); });
 
         UI.micBtn.addEventListener('click', () => {
             if (!user) return alert("Please sign in first.");
-            if (!state.settings.voiceAccepted) {
-                UI.voiceModal.classList.remove('hidden');
-                return;
-            }
-            VoiceManager.toggleRecording();
+            UI.voiceSheet.classList.remove('hidden');
+            setTimeout(() => UI.voiceSheet.classList.add('show'), 10);
+            VoiceManager.startListening();
         });
 
-        UI.sendBtn.addEventListener('click', execute);
-        UI.stopBtn.addEventListener('click', () => { controller?.abort(); VoiceManager.stopSpeaking(); });
+        UI.sendBtn.addEventListener('click', () => execute(false));
+        UI.stopBtn.addEventListener('click', () => { if(controller) controller.abort(); });
         
         UI.newChatBtn.addEventListener('click', () => { if(user) startNewChat(); });
 
@@ -727,15 +597,14 @@ window.AppManager = (() => {
             const avatar = UI.newCharAvatar.value.trim();
             const prompt = UI.newCharPrompt.value.trim();
             if (name && prompt && user) {
-                const { error } = await window.supabaseClient.from('characters').insert([{ user_id: user.id, name, avatar, system_prompt: prompt }]);
-                if (error) return console.error(error);
+                await window.supabaseClient.from('characters').insert([{ user_id: user.id, name, avatar, system_prompt: prompt }]);
                 UI.newCharName.value = ""; UI.newCharAvatar.value = ""; UI.newCharPrompt.value = "";
                 loadCharacters();
             }
         });
 
         UI.prompt.addEventListener('input', function() { this.style.height = '50px'; this.style.height = (this.scrollHeight) + 'px'; });
-        UI.prompt.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); execute(); } });
+        UI.prompt.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); execute(false); } });
     }
 
     return { initialize, loadConversationHistory, forkChat, copyChat, deleteChat };
