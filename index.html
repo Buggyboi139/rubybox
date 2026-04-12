@@ -46,6 +46,17 @@
             </optgroup>
         </select>
 
+        <div class="settings-panel">
+            <div class="slider-group">
+                <label for="temp-slider">Temperature: <span id="temp-val">0.7</span></label>
+                <input type="range" id="temp-slider" min="0" max="2" step="0.1" value="0.7">
+            </div>
+            <div class="slider-group">
+                <label for="ctx-slider">Context Memory: <span id="ctx-val">10</span> msgs</label>
+                <input type="range" id="ctx-slider" min="2" max="50" step="2" value="10">
+            </div>
+        </div>
+
         <div id="active-char-display" class="hidden">
             <img id="active-char-img" src="" alt="Avatar">
             <div id="active-char-name"></div>
@@ -67,8 +78,8 @@
         </div>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-            <button id="download-btn" class="secondary-btn" style="width: 100%;">Export Vault</button>
-            <button id="import-btn" class="secondary-btn" style="width: 100%;">Import Vault</button>
+            <button id="download-btn" class="secondary-btn" style="width: 100%;">Export</button>
+            <button id="import-btn" class="secondary-btn" style="width: 100%;">Import</button>
         </div>
         <input type="file" id="import-file" class="hidden" accept=".json,.enc">
     </aside>
