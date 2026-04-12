@@ -1,3 +1,9 @@
+window.App.handleTranscriptionSubmit = function(text) {
+    const currentText = window.App.UI.prompt.value;
+    window.App.UI.prompt.value = currentText ? currentText + " " + text : text;
+    window.App.execute(true);
+};
+
 window.App.setupEventListeners = function() {
     window.App.UI.chatLog.addEventListener('scroll', () => { 
         const diff = window.App.UI.chatLog.scrollHeight - window.App.UI.chatLog.scrollTop - window.App.UI.chatLog.clientHeight;
@@ -104,8 +110,15 @@ window.App.setupEventListeners = function() {
         }
     });
 
-    window.App.UI.exportBtn.addEventListener('click', window.App.exportChat);
-    document.getElementById('mobile-export-btn').addEventListener('click', window.App.exportChat);
+    if (window.App.UI.exportBtn) {
+        window.App.UI.exportBtn.addEventListener('click', window.App.exportChat);
+    }
+    
+    const mobileExportBtn = document.getElementById('mobile-export-btn');
+    if (mobileExportBtn) {
+        mobileExportBtn.addEventListener('click', window.App.exportChat);
+    }
+    
     window.App.UI.sendBtn.addEventListener('click', () => window.App.execute(false));
     window.App.UI.stopBtn.addEventListener('click', () => { if(window.App.controller) window.App.controller.abort(); VoiceManager.stopAll(); });
     
