@@ -21,7 +21,7 @@
     <header class="mobile-header">
         <button id="menu-toggle" class="hamburger-btn">☰</button>
         <span class="mobile-title">RubyBox</span>
-        <button id="mobile-export-btn" class="secondary-btn icon-only">📥</button>
+        <button id="mobile-export-btn" class="secondary-btn icon-only">📤</button>
     </header>
 
     <aside id="sidebar" class="side-menu">
@@ -100,13 +100,9 @@
     </aside>
 
     <main id="chat-wrapper">
-        <div id="desktop-export-container" style="position: absolute; top: 15px; right: 20px; z-index: 100;">
-            <button id="export-chat-btn" class="secondary-btn" style="padding: 6px 12px; font-size: 0.8rem; width: auto; background: rgba(30, 15, 20, 0.6); backdrop-filter: blur(10px);">Export Chat</button>
-        </div>
         <div id="chat-log"></div>
         <div class="control-panel">
-            <button id="attach-img-btn" class="control-btn">📎</button>
-            <input type="file" id="image-upload" accept="image/png, image/jpeg, image/webp" class="hidden">
+            <button id="mic-btn" class="control-btn">🎙️</button>
             
             <div id="image-preview-container" class="hidden">
                 <img id="image-preview" src="">
@@ -119,7 +115,8 @@
             </div>
             
             <div style="display: flex; gap: 5px;">
-                <button id="mic-btn" class="control-btn">🎤</button>
+                <button id="attach-img-btn" class="control-btn">📎</button>
+                <input type="file" id="image-upload" accept="image/png, image/jpeg, image/webp" class="hidden">
                 <button id="send-btn" class="primary-btn" style="height: 50px; margin: 0; padding: 0 20px;">Send</button>
                 <button id="stop-btn" class="secondary-btn hidden" style="height: 50px; margin: 0; padding: 0 20px; color: #fb7185;">Stop</button>
             </div>
