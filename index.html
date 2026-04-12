@@ -16,9 +16,14 @@
 </head>
 <body>
     <div id="left-color-bar"></div>
-    <button id="menu-toggle" class="hamburger-btn">☰</button>
     <div id="sidebar-overlay" class="side-menu-overlay"></div>
     
+    <header class="mobile-header">
+        <button id="menu-toggle" class="hamburger-btn">☰</button>
+        <span class="mobile-title">RubyBox</span>
+        <button id="mobile-export-btn" class="secondary-btn icon-only">📥</button>
+    </header>
+
     <aside id="sidebar" class="side-menu">
         <div class="logo-container"><span class="logo-text">RubyBox</span></div>
         
@@ -92,7 +97,7 @@
     </aside>
 
     <main id="chat-wrapper">
-        <div style="position: absolute; top: 15px; right: 20px; z-index: 100;">
+        <div id="desktop-export-container" style="position: absolute; top: 15px; right: 20px; z-index: 100;">
             <button id="export-chat-btn" class="secondary-btn" style="padding: 6px 12px; font-size: 0.8rem; width: auto; background: rgba(30, 15, 20, 0.6); backdrop-filter: blur(10px);">Export Chat</button>
         </div>
         <div id="chat-log"></div>
@@ -105,9 +110,9 @@
                 <button id="clear-img-btn">&times;</button>
             </div>
             
-            <div style="flex: 1; position: relative;">
+            <div style="flex: 1; position: relative; display: flex;">
                 <textarea id="prompt" class="glass-input" placeholder="Message..."></textarea>
-                <div id="token-counter" style="position: absolute; bottom: -20px; right: 5px; font-size: 0.7rem; color: var(--text-muted);">~0 tokens</div>
+                <div id="token-counter">~0 tokens</div>
             </div>
             
             <div style="display: flex; gap: 5px;">
@@ -164,13 +169,13 @@
 
     <div id="voice-bottom-sheet" class="voice-sheet hidden">
         <div class="voice-sheet-content">
-            <h3 id="voice-status-text" style="color: #ffb6c1; margin-bottom: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; text-align: center;">Initializing Model...</h3>
+            <h3 id="voice-status-text" style="color: #ffb6c1; margin-bottom: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; text-align: center;">Initializing...</h3>
             <canvas id="voice-visualizer"></canvas>
             <div class="voice-controls">
                 <button id="voice-cancel-btn" class="voice-btn cancel">Close</button>
             </div>
             <div id="voice-progress-container" class="hidden" style="width: 100%; margin-top: 15px;">
-                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px; text-align: center;">Downloading Neural Models (Once per device)</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px; text-align: center;">Downloading Neural Models</div>
                 <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
                     <div id="voice-progress-bar" style="width: 0%; height: 100%; background: #ffb6c1; transition: width 0.2s;"></div>
                 </div>
