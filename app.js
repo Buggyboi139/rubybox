@@ -38,6 +38,7 @@ window.AppManager = (() => {
         saveProfileBtn: document.getElementById('saveProfileBtn'),
         voiceSheet: document.getElementById('voice-bottom-sheet'),
         voiceCancelBtn: document.getElementById('voice-cancel-btn'),
+        voiceInterruptBtn: document.getElementById('voice-interrupt-btn'),
         activeCharDisplay: document.getElementById('active-char-display'),
         activeCharImg: document.getElementById('active-char-img'),
         activeCharName: document.getElementById('active-char-name'),
@@ -582,16 +583,17 @@ window.AppManager = (() => {
         });
         UI.clearImgBtn.addEventListener('click', () => { attachedImageBase64 = null; UI.imagePreview.src = ''; UI.imagePreviewContainer.classList.add('hidden'); UI.imageUpload.value = ''; });
 
-        UI.voiceSheet.addEventListener('click', (e) => {
-            if (e.target.closest('#voice-cancel-btn') || e.target.closest('#voice-progress-container')) return;
-            const s = VoiceManager.getState();
-            if (s === 'speaking' || s === 'thinking') {
-                if(controller) controller.abort();
-                VoiceManager.interruptAndListen();
-            }
+        UI.voiceInterruptBtn.addEventListener('click', () => { 
+            VoiceManager.stopPlayback(); 
+            if(controller) controller.abort(); 
         });
 
-        UI.voiceCancelBtn.addEventListener('click', () => { UI.voiceSheet.classList.remove('show'); setTimeout(() => UI.voiceSheet.classList.add('hidden'), 400); VoiceManager.stopAll(); if(controller) controller.abort(); });
+        UI.voiceCancelBtn.addEventListener('click', () => { 
+            UI.voiceSheet.classList.remove('show'); 
+            setTimeout(() => UI.voiceSheet.classList.add('hidden'), 400); 
+            VoiceManager.stopAll(); 
+            if(controller) controller.abort(); 
+        });
 
         UI.micBtn.addEventListener('click', () => {
             if (!user) return alert("Please sign in first.");
