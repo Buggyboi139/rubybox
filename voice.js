@@ -3,8 +3,10 @@ const VoiceManager = (() => {
     let globalAnalyser;
     let micAnalyser;
     let canvas, canvasCtx;
+    let legacyScriptNode;
+    let legacySource;
     
-    let currentState = 'idle';
+    let currentState = 'initializing';
     let ttsQueue = [];
     let activeSources = [];
     let nextStartTime = 0;
@@ -14,6 +16,8 @@ const VoiceManager = (() => {
     let currentSessionId = 0;
     let isStreamComplete = false;
     let modelProgress = {};
+    let pendingStart = false;
+    let silenceTimer = null;
     
     let onTranscription = null;
     let onStateChange = null;
@@ -66,6 +70,10 @@ const VoiceManager = (() => {
         if(onStateChange) onStateChange(currentState);
     }
 
+    function setPendingStart(val) {
+        pendingStart = val;
+    }
+
     function trimSilence(bufferData, sampleRate) {
         let start = 0;
         let end = bufferData.length - 1;
@@ -85,13 +93,20 @@ const VoiceManager = (() => {
         canvas = document.getElementById('voice-visualizer');
         canvasCtx = canvas.getContext('2d');
         
+        changeState('initializing');
         const blob = new Blob([workerCode], { type: 'application/javascript' });
         sttWorker = new Worker(URL.createObjectURL(blob), { type: 'module' });
         
         sttWorker.onmessage = (e) => {
             if (e.data.type === 'ready') {
                 document.getElementById('voice-progress-container').classList.add('hidden');
-                changeState('ready');
+                changeState('idle');
+                if (pendingStart) {
+                    pendingStart = false;
+                    startListening();
+                }
+            } else if (e.data.type === 'error') {
+                changeState('error');
             } else if (e.data.type === 'download_progress') {
                 const data = e.data.data;
                 document.getElementById('voice-progress-container').classList.remove('hidden');
@@ -158,6 +173,48 @@ const VoiceManager = (() => {
         osc.stop(globalAudioContext.currentTime + 0.3);
     }
 
+    function setupLegacySilenceDetection(stream) {
+        if (!globalAudioContext) return;
+        legacySource = globalAudioContext.createMediaStreamSource(stream);
+        legacySource.connect(micAnalyser);
+        
+        legacyScriptNode = globalAudioContext.createScriptProcessor(1024, 1, 1);
+        micAnalyser.connect(legacyScriptNode);
+        
+        const dummyGain = globalAudioContext.createGain();
+        dummyGain.gain.value = 0;
+        legacyScriptNode.connect(dummyGain);
+        dummyGain.connect(globalAudioContext.destination);
+
+        let audioChunks = [];
+        legacyScriptNode.onaudioprocess = (e) => {
+            if (currentState !== 'listening') return;
+            const inputData = e.inputBuffer.getChannelData(0);
+            audioChunks.push(new Float32Array(inputData));
+
+            const array = new Uint8Array(micAnalyser.frequencyBinCount);
+            micAnalyser.getByteFrequencyData(array);
+            let sum = 0;
+            for (let i = 0; i < array.length; i++) sum += array[i];
+            const average = sum / array.length;
+
+            if (average > 15) {
+                clearTimeout(silenceTimer);
+                silenceTimer = setTimeout(() => {
+                    if (legacySource) legacySource.disconnect();
+                    if (legacyScriptNode) legacyScriptNode.disconnect();
+                    if (audioChunks.length > 0) {
+                        const totalLen = audioChunks.reduce((acc, c) => acc + c.length, 0);
+                        const combined = new Float32Array(totalLen);
+                        let offset = 0;
+                        audioChunks.forEach(c => { combined.set(c, offset); offset += c.length; });
+                        sttWorker.postMessage({ type: 'transcribe', audio: combined });
+                    }
+                }, 1500); 
+            }
+        };
+    }
+
     async function startListening() {
         currentSessionId++;
         isStreamComplete = false;
@@ -165,6 +222,7 @@ const VoiceManager = (() => {
         sentenceBuffer = "";
         isGenerating = false;
         nextStartTime = 0;
+        clearTimeout(silenceTimer);
         activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
         activeSources = [];
         nativeSynth.cancel();
@@ -183,28 +241,34 @@ const VoiceManager = (() => {
             globalAnalyser = globalAudioContext.createAnalyser();
             globalAnalyser.connect(globalAudioContext.destination);
             micAnalyser = globalAudioContext.createAnalyser();
+            micAnalyser.smoothingTimeConstant = 0.5;
+            micAnalyser.fftSize = 1024;
         }
         if (globalAudioContext.state === 'suspended') await globalAudioContext.resume();
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const source = globalAudioContext.createMediaStreamSource(stream);
-            source.connect(micAnalyser);
-
+            
             changeState('listening');
             playDing();
 
-            if (window.vad && window.vad.MicVAD) {
-                vadInstance = await window.vad.MicVAD.new({
-                    stream: stream,
-                    onSpeechEnd: (audio) => {
-                        vadInstance.pause();
-                        sttWorker.postMessage({ type: 'transcribe', audio });
-                    }
-                });
-                vadInstance.start();
-            } else {
-                changeState('error');
+            try {
+                if (window.vad && window.vad.MicVAD) {
+                    vadInstance = await window.vad.MicVAD.new({
+                        stream: stream,
+                        onSpeechEnd: (audio) => {
+                            vadInstance.pause();
+                            sttWorker.postMessage({ type: 'transcribe', audio });
+                        }
+                    });
+                    vadInstance.start();
+                    const dummySource = globalAudioContext.createMediaStreamSource(stream);
+                    dummySource.connect(micAnalyser);
+                } else {
+                    throw new Error("VAD unvailable");
+                }
+            } catch (err) {
+                setupLegacySilenceDetection(stream);
             }
         } catch (err) {
             changeState('error');
@@ -327,11 +391,14 @@ const VoiceManager = (() => {
 
     function stopAll() {
         currentSessionId++;
+        clearTimeout(silenceTimer);
         activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
         activeSources = [];
         nativeSynth.cancel();
         if (nativeRecognition) try { nativeRecognition.stop(); } catch(e){}
         if (vadInstance) { vadInstance.destroy(); vadInstance = null; }
+        if (legacySource) { legacySource.disconnect(); }
+        if (legacyScriptNode) { legacyScriptNode.disconnect(); }
         ttsQueue = [];
         sentenceBuffer = "";
         isGenerating = false;
@@ -357,7 +424,7 @@ const VoiceManager = (() => {
             let x = 0;
             for (let i = 0; i < arr.length; i++) {
                 const v = arr[i] / 128.0;
-                const y = (height - 30) - (v * 40); 
+                const y = (height - 20) - (v * 40); 
                 if (i === 0) canvasCtx.moveTo(x, y);
                 else canvasCtx.lineTo(x, y);
                 x += sliceWidth;
@@ -365,7 +432,7 @@ const VoiceManager = (() => {
             canvasCtx.stroke();
         } else if (currentState === 'thinking') {
             const t = Date.now() / 300;
-            let radius = 60 + Math.sin(t) * 20;
+            let radius = 40 + Math.sin(t) * 15;
             canvasCtx.beginPath();
             canvasCtx.arc(width/2, height/2, radius, 0, 2*Math.PI);
             canvasCtx.fillStyle = 'rgba(168, 85, 247, 0.4)';
@@ -384,7 +451,7 @@ const VoiceManager = (() => {
             let x = 0;
             for (let i = 0; i < arr.length; i++) {
                 const v = arr[i] / 128.0;
-                const y = height/2 + (v * 80 - 80);
+                const y = height/2 + (v * 60 - 60);
                 if (i === 0) canvasCtx.moveTo(x, y);
                 else canvasCtx.lineTo(x, y);
                 x += sliceWidth;
@@ -393,5 +460,5 @@ const VoiceManager = (() => {
         }
     }
 
-    return { init, startListening, receiveDelta, commitBuffer, markStreamComplete, interruptAndListen, stopPlayback, stopAll, getState: () => currentState };
+    return { init, startListening, receiveDelta, commitBuffer, markStreamComplete, interruptAndListen, stopPlayback, stopAll, setPendingStart, getState: () => currentState };
 })();
