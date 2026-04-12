@@ -35,3 +35,83 @@ window.App.loadConversationHistory = async function(convId, renderList = true) {
     window.App.UI.sidebar.classList.remove('show');
     window.App.UI.overlay.classList.remove('show');
 };
+
+window.App.loadUserSettings = async function() {
+    if (!window.App.user) return;
+    const { data } = await window.supabaseClient.from('user_settings').select('*').eq('user_id', window.App.user.id).single();
+    if (data) {
+        if (data.api_key) window.App.UI.apiKey.value = data.api_key;
+        if (data.system_prompt) window.App.UI.sysPrompt.value = data.system_prompt;
+        if (data.narrative_prompt) window.App.UI.narrativePrompt.value = data.narrative_prompt;
+        if (data.temperature) { window.App.UI.tempSlider.value = data.temperature; window.App.UI.tempVal.textContent = data.temperature; }
+        if (data.context_limit) { window.App.UI.ctxSlider.value = data.context_limit; window.App.UI.ctxVal.textContent = data.context_limit; }
+        if (data.model) window.App.UI.model.value = data.model;
+        if (data.voice_mode) window.App.UI.voiceMode.value = data.voice_mode;
+    }
+};
+
+window.App.saveUserSettings = async function() {
+    if (!window.App.user) return;
+    const settings = {
+        user_id: window.App.user.id,
+        api_key: window.App.UI.apiKey.value,
+        system_prompt: window.App.UI.sysPrompt.value,
+        narrative_prompt: window.App.UI.narrativePrompt.value,
+        temperature: parseFloat(window.App.UI.tempSlider.value),
+        context_limit: parseInt(window.App.UI.ctxSlider.value),
+        model: window.App.UI.model.value,
+        voice_mode: window.App.UI.voiceMode.value
+    };
+    await window.supabaseClient.from('user_settings').upsert([settings]);
+    window.App.showToast('Settings saved');
+};
+
+window.App.loadCharacters = async function() {
+    if (!window.App.user) return;
+    const { data } = await window.supabaseClient.from('characters').select('*').eq('user_id', window.App.user.id);
+    window.App.state.characters = data || [];
+    window.App.renderCharacters();
+};
+
+window.App.loadConversations = async function() {
+    if (!window.App.user) return;
+    const { data } = await window.supabaseClient.from('conversations').select('*').eq('user_id', window.App.user.id).order('created_at', { ascending: false });
+    window.App.UI.conversationsList.innerHTML = "";
+    const searchTerm = window.App.UI.chatSearch ? window.App.UI.chatSearch.value.toLowerCase() : "";
+    
+    (data || []).forEach(conv => {
+        if (searchTerm && !conv.title.toLowerCase().includes(searchTerm)) return;
+        const div = document.createElement('div');
+        div.className = `chat-sidebar-item ${conv.id === window.App.currentConversationId ? 'active' : ''}`;
+        div.innerHTML = `
+            <div class="chat-sidebar-info">
+                <div class="chat-sidebar-title">${DOMPurify.sanitize(conv.title || 'New Chat')}</div>
+            </div>
+            <div class="chat-sidebar-actions">
+                <button class="chat-sidebar-btn danger del-chat-btn" data-id="${conv.id}">×</button>
+            </div>
+        `;
+        div.addEventListener('click', (e) => {
+            if (e.target.classList.contains('del-chat-btn')) return;
+            window.App.loadConversationHistory(conv.id);
+        });
+        div.querySelector('.del-chat-btn').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await window.supabaseClient.from('conversations').delete().eq('id', conv.id);
+            if (window.App.currentConversationId === conv.id) window.App.startNewChat();
+            else window.App.loadConversations();
+        });
+        window.App.UI.conversationsList.appendChild(div);
+    });
+};
+
+window.App.uploadImageToStorage = async function(base64Data) {
+    if (!window.App.user) return null;
+    const response = await fetch(base64Data);
+    const blob = await response.blob();
+    const fileName = `${window.App.user.id}_${Date.now()}.jpg`;
+    const { data, error } = await window.supabaseClient.storage.from('chat_images').upload(fileName, blob);
+    if (error) return null;
+    const { data: urlData } = window.supabaseClient.storage.from('chat_images').getPublicUrl(fileName);
+    return urlData.publicUrl;
+};
