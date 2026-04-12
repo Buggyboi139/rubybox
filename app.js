@@ -10,7 +10,6 @@ window.AppManager = (() => {
         imagePreviewContainer: document.getElementById('image-preview-container'),
         imagePreview: document.getElementById('image-preview'),
         clearImgBtn: document.getElementById('clear-img-btn'),
-        status: document.getElementById('status-badge'),
         model: document.getElementById('model-select'),
         apiKey: document.getElementById('api-key'),
         sysPrompt: document.getElementById('system-prompt'),
@@ -39,7 +38,6 @@ window.AppManager = (() => {
         saveProfileBtn: document.getElementById('saveProfileBtn'),
         voiceSheet: document.getElementById('voice-bottom-sheet'),
         voiceCancelBtn: document.getElementById('voice-cancel-btn'),
-        voiceInterruptBtn: document.getElementById('voice-interrupt-btn'),
         activeCharDisplay: document.getElementById('active-char-display'),
         activeCharImg: document.getElementById('active-char-img'),
         activeCharName: document.getElementById('active-char-name'),
@@ -78,22 +76,14 @@ window.AppManager = (() => {
 
     async function initialize(authenticatedUser) {
         user = authenticatedUser;
-        
-        if (!listenersBound) {
-            setupEventListeners();
-            listenersBound = true;
-        }
-
+        if (!listenersBound) { setupEventListeners(); listenersBound = true; }
         if (!user) return;
 
         await loadUserSettings();
         await loadCharacters();
         await loadConversations();
 
-        if (!currentConversationId) {
-            await startNewChat();
-        }
-        
+        if (!currentConversationId) await startNewChat();
         VoiceManager.init(handleTranscriptionSubmit, handleVoiceStateChange);
     }
 
@@ -298,13 +288,16 @@ window.AppManager = (() => {
         const statusText = document.getElementById('voice-status-text');
         if (status === 'listening') {
             statusText.textContent = "Listening...";
-            statusText.style.color = "#ffb6c1";
+            statusText.style.color = "#06b6d4";
         } else if (status === 'thinking') {
             statusText.textContent = "Thinking...";
-            statusText.style.color = "#38bdf8";
+            statusText.style.color = "#a855f7";
         } else if (status === 'speaking') {
             statusText.textContent = "Speaking...";
-            statusText.style.color = "#34d399";
+            statusText.style.color = "#10b981";
+        } else if (status === 'idle') {
+            statusText.textContent = "Idle";
+            statusText.style.color = "#ffb6c1";
         }
     }
 
@@ -505,7 +498,6 @@ window.AppManager = (() => {
             let fullText = "";
             let buffer = "";
             const box = addMessage('assistant', "", true);
-            let sentenceBuffer = "";
             
             while (true) {
                 const { done, value } = await reader.read();
@@ -520,11 +512,9 @@ window.AppManager = (() => {
                         const data = JSON.parse(cleanLine);
                         const delta = data.choices[0].delta.content || "";
                         fullText += delta;
-                        sentenceBuffer += delta;
 
-                        if (fromVoice && /[.!?]/.test(delta)) {
-                            VoiceManager.queueText(sentenceBuffer.trim());
-                            sentenceBuffer = "";
+                        if (fromVoice) {
+                            VoiceManager.receiveDelta(delta);
                         }
 
                         box.innerHTML = DOMPurify.sanitize(marked.parse(fullText), { ADD_TAGS: ['think'] });
@@ -532,7 +522,7 @@ window.AppManager = (() => {
                     } catch (e) {}
                 }
             }
-            if (fromVoice && sentenceBuffer.trim()) VoiceManager.queueText(sentenceBuffer.trim());
+            if (fromVoice) VoiceManager.commitBuffer();
             
             const streamContainer = document.getElementById('streaming-container');
             if (streamContainer) streamContainer.id = "";
@@ -592,8 +582,16 @@ window.AppManager = (() => {
         });
         UI.clearImgBtn.addEventListener('click', () => { attachedImageBase64 = null; UI.imagePreview.src = ''; UI.imagePreviewContainer.classList.add('hidden'); UI.imageUpload.value = ''; });
 
+        UI.voiceSheet.addEventListener('click', (e) => {
+            if (e.target.closest('#voice-cancel-btn') || e.target.closest('#voice-progress-container')) return;
+            const s = VoiceManager.getState();
+            if (s === 'speaking' || s === 'thinking') {
+                if(controller) controller.abort();
+                VoiceManager.interruptAndListen();
+            }
+        });
+
         UI.voiceCancelBtn.addEventListener('click', () => { UI.voiceSheet.classList.remove('show'); setTimeout(() => UI.voiceSheet.classList.add('hidden'), 400); VoiceManager.stopAll(); if(controller) controller.abort(); });
-        UI.voiceInterruptBtn.addEventListener('click', () => { VoiceManager.stopPlayback(); if(controller) controller.abort(); });
 
         UI.micBtn.addEventListener('click', () => {
             if (!user) return alert("Please sign in first.");
