@@ -10,7 +10,6 @@ const VoiceManager = (() => {
     let ttsQueue = [];
     let currentTtsSource = null;
     let sttWorker = null;
-    let ttsWorker = null;
     let onTranscription = null;
     let onStateChange = null;
 
@@ -40,9 +39,12 @@ const VoiceManager = (() => {
             }
         } else if (e.data.type === 'speak') {
             try {
-                const out = await tts(e.data.text);
+                const speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
+                const out = await tts(e.data.text, { speaker_embeddings });
                 self.postMessage({ type: 'audio', buffer: out.audio, sampleRate: out.sampling_rate });
-            } catch (err) {}
+            } catch (err) {
+                self.postMessage({ type: 'audio_error' });
+            }
         }
     };
     `;
@@ -68,6 +70,9 @@ const VoiceManager = (() => {
                 if(onStateChange) onStateChange('thinking');
             } else if (e.data.type === 'audio') {
                 playAudioBuffer(e.data.buffer, e.data.sampleRate);
+            } else if (e.data.type === 'audio_error') {
+                isSpeaking = false;
+                processQueue();
             }
         };
         sttWorker.postMessage({ type: 'init' });
