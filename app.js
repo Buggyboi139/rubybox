@@ -105,6 +105,8 @@ window.AppManager = (() => {
             state.settings.voiceAccepted = data.voice_accepted;
             if(data.default_model) state.settings.defaultModel = data.default_model;
             if(data.encrypted_api_key) UI.apiKey.value = data.encrypted_api_key; 
+            if(data.system_prompt) UI.sysPrompt.value = data.system_prompt;
+            if(data.narrative_prompt) UI.narrativePrompt.value = data.narrative_prompt;
         }
         
         UI.tempSlider.value = state.settings.temperature;
@@ -122,7 +124,9 @@ window.AppManager = (() => {
             context_limit: parseInt(UI.ctxSlider.value),
             default_model: UI.model.value,
             voice_accepted: state.settings.voiceAccepted,
-            encrypted_api_key: UI.apiKey.value
+            encrypted_api_key: UI.apiKey.value,
+            system_prompt: UI.sysPrompt.value,
+            narrative_prompt: UI.narrativePrompt.value
         });
     }
 
@@ -167,7 +171,6 @@ window.AppManager = (() => {
     async function startNewChat() {
         state.history = [];
         UI.chatLog.innerHTML = "";
-        UI.narrativePrompt.value = "";
         UI.persistMem.value = "";
         const { data } = await window.supabaseClient.from('conversations').insert([{ user_id: user.id, title: 'New Chat' }]).select().single();
         if (data) {
@@ -291,6 +294,7 @@ window.AppManager = (() => {
                 if (e.target.classList.contains('char-del')) return;
                 state.activeCharacter = c;
                 UI.sysPrompt.value = c.system_prompt;
+                saveUserSettings();
                 renderActiveCharacter();
                 UI.charModal.classList.add('hidden');
             });
@@ -571,10 +575,11 @@ window.AppManager = (() => {
         const messages = [{ role: "system", content: systemContent }, ...recent];
         
         try {
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            const response = await fetch(`${window.supabaseClient.supabaseUrl}/functions/v1/chat`, {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${UI.apiKey.value}`,
+                    "Authorization": `Bearer ${session.access_token}`,
                     "Content-Type": "application/json"
                 },
                 signal: controller.signal,
@@ -663,10 +668,12 @@ window.AppManager = (() => {
         
         UI.overlay.addEventListener('click', () => { UI.sidebar.classList.remove('show'); UI.overlay.classList.remove('show'); });
 
+        UI.sysPrompt.addEventListener('change', saveUserSettings);
+        UI.narrativePrompt.addEventListener('change', saveUserSettings);
+        UI.apiKey.addEventListener('change', saveUserSettings);
         UI.tempSlider.addEventListener('input', (e) => { UI.tempVal.textContent = e.target.value; saveUserSettings(); });
         UI.ctxSlider.addEventListener('input', (e) => { UI.ctxVal.textContent = e.target.value; saveUserSettings(); });
         UI.model.addEventListener('change', saveUserSettings);
-        UI.apiKey.addEventListener('change', saveUserSettings);
 
         UI.attachImgBtn.addEventListener('click', () => UI.imageUpload.click());
         UI.imageUpload.addEventListener('change', (e) => {
