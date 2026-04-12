@@ -21,10 +21,13 @@ window.App.setupEventListeners = function() {
     });
 
     if (window.App.UI.mobileSidebarClose) {
-        window.App.UI.mobileSidebarClose.addEventListener('click', () => {
+        const closeSidebar = (e) => {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
             window.App.UI.sidebar.classList.remove('show');
             window.App.UI.overlay.classList.remove('show');
-        });
+        };
+        window.App.UI.mobileSidebarClose.addEventListener('click', closeSidebar);
+        window.App.UI.mobileSidebarClose.addEventListener('touchstart', closeSidebar, { passive: false });
     }
 
     window.App.UI.profileBtn.addEventListener('click', () => { window.App.UI.profileModal.classList.remove('hidden'); window.App.UI.sidebar.classList.remove('show'); window.App.UI.overlay.classList.remove('show'); });
