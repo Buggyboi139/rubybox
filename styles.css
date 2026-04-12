@@ -113,14 +113,13 @@ think { display: block; padding: 15px; margin: 15px 0; border-left: 3px solid rg
 .action-btn.danger:hover { background: rgba(251, 113, 133, 0.2); color: #fb7185; border-color: #fb7185; }
 .hidden { display: none !important; }
 
-.voice-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(180deg, rgba(20, 10, 15, 0.95) 0%, #0a0507 100%); backdrop-filter: blur(20px); border-top: 1px solid var(--border-highlight); z-index: 4000; transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 -20px 50px rgba(0,0,0,0.8); }
+.voice-sheet { position: fixed; top: 0; bottom: 0; left: 0; right: 0; background: linear-gradient(180deg, rgba(20, 10, 15, 0.95) 0%, #0a0507 100%); backdrop-filter: blur(20px); z-index: 4000; transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); display: flex; align-items: center; justify-content: center; }
 .voice-sheet.show { transform: translateY(0); }
-.voice-sheet-content { padding: 40px 20px; max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; }
-#voice-visualizer { width: 100%; height: 120px; margin-bottom: 30px; border-radius: 12px; }
-.voice-controls { display: flex; gap: 15px; width: 100%; justify-content: center; }
+.voice-sheet-content { padding: 40px 20px; width: 100%; max-width: 800px; display: flex; flex-direction: column; align-items: center; }
+#voice-visualizer { width: 100%; height: 300px; margin-bottom: 40px; border-radius: 12px; pointer-events: none; }
+.voice-controls { display: flex; gap: 15px; width: 100%; justify-content: center; z-index: 4001; }
 .voice-btn { padding: 15px 30px; border-radius: 30px; font-weight: 700; font-size: 1.1rem; cursor: pointer; transition: 0.2s; border: none; }
-.voice-btn.stop { background: #fb7185; color: white; box-shadow: 0 10px 20px rgba(251, 113, 133, 0.3); }
 .voice-btn.cancel { background: rgba(255,255,255,0.1); color: var(--text-main); }
-.voice-btn:hover { transform: translateY(-2px); }
+.voice-btn:hover { transform: translateY(-2px); background: rgba(255,255,255,0.2); }
 
 @media (max-width: 768px) { .msg-container { max-width: 95%; } .control-panel { padding: 10px; } }
