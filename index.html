@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RubyBox | Networked</title>
+    <title>RubyBox</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -21,18 +21,14 @@
         <div class="logo-container"><span class="logo-text">RubyBox</span></div>
         
         <div id="auth-panel" style="margin-bottom: 15px;">
-            <button id="login-btn" class="primary-btn" style="padding: 10px;">Sign In / Register</button>
+            <button id="login-btn" class="primary-btn" style="padding: 10px;">Sign In</button>
             <div id="user-info" class="hidden" style="text-align: center; color: #ffb6c1; font-weight: 600; font-size: 0.9rem;">
                 <span id="user-email-display"></span>
                 <button id="logout-btn" class="secondary-btn" style="margin-top: 10px; padding: 6px; width: 100%; font-size: 0.8rem;">Sign Out</button>
             </div>
         </div>
 
-        <textarea id="system-prompt" class="glass-input" placeholder="System Directives..." style="height: 80px; margin-bottom: 10px;"></textarea>
-        <textarea id="narrative-prompt" class="glass-input" placeholder="Narrative Context..." style="height: 80px; margin-bottom: 10px;"></textarea>
-        <textarea id="persistent-memory" class="glass-input" placeholder="Persistent Memory..." style="height: 80px; margin-bottom: 15px; border-color: rgba(254, 207, 239, 0.4);"></textarea>
-
-        <div style="flex: 1; overflow-y: auto; margin-bottom: 10px; display: flex; flex-direction: column;">
+        <div style="flex: 1; overflow-y: auto; margin-bottom: 10px; display: flex; flex-direction: column; min-height: 0;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <h3 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Recent Chats</h3>
                 <button id="new-chat-btn" class="secondary-btn" style="padding: 4px 8px; font-size: 0.75rem;">+ New</button>
@@ -41,21 +37,18 @@
         </div>
 
         <div id="active-char-display" class="hidden">
-            <img id="active-char-img" src="" alt="Avatar">
+            <img id="active-char-img" src="" alt="">
             <div id="active-char-name"></div>
             <button id="clear-char-btn">&times;</button>
         </div>
-
-        <div class="stats-panel">
-            <div id="status-badge" style="color: #ffb6c1; font-weight: 700;">READY</div>
-        </div>
         
-        <button id="chars-btn" class="primary-btn" style="margin-bottom: 15px; background: rgba(255,255,255,0.05); color: #ffb6c1; border: 1px solid var(--border-highlight); margin-top: 0;">Characters Vault</button>
+        <button id="profile-btn" class="secondary-btn" style="margin-bottom: 10px;">Profile & Memory</button>
+        <button id="chars-btn" class="secondary-btn" style="margin-bottom: 15px;">Characters Vault</button>
 
         <details class="settings-panel" style="margin-bottom: 0;">
-            <summary style="color: #ffb6c1; cursor: pointer; font-weight: 600; font-size: 0.9rem; outline: none; margin-bottom: 10px;">Settings & API</summary>
+            <summary style="color: #ffb6c1; cursor: pointer; font-weight: 600; font-size: 0.9rem; outline: none; padding: 5px 0;">Settings & API</summary>
             <div style="margin-top: 15px;">
-                <input type="password" id="api-key" placeholder="OpenRouter API Key" class="glass-input" style="margin-bottom: 15px;">
+                <input type="password" id="api-key" placeholder="OpenRouter Key" class="glass-input" style="margin-bottom: 15px;">
                 <select id="model-select" class="glass-input" style="margin-bottom: 15px; font-size: 0.9rem !important; padding: 10px;">
                     <optgroup label="Anthropic">
                         <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
@@ -63,22 +56,17 @@
                         <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
                     </optgroup>
                     <optgroup label="Google">
+                        <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
                         <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
                         <option value="google/gemini-pro-1.5">Gemini 1.5 Pro</option>
-                        <option value="google/gemini-flash-1.5">Gemini 1.5 Flash</option>
                     </optgroup>
                     <optgroup label="OpenAI">
                         <option value="openai/gpt-4o">GPT-4o</option>
-                        <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
-                        <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                        <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
                     </optgroup>
                     <optgroup label="DeepSeek">
                         <option value="deepseek/deepseek-chat" selected>DeepSeek V3</option>
                         <option value="deepseek/deepseek-r1">DeepSeek R1</option>
-                    </optgroup>
-                    <optgroup label="Meta">
-                        <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
-                        <option value="meta-llama/llama-3-8b-instruct">Llama 3 8B</option>
                     </optgroup>
                 </select>
                 <div class="slider-group">
@@ -86,7 +74,7 @@
                     <input type="range" id="temp-slider" min="0" max="2" step="0.1" value="0.7">
                 </div>
                 <div class="slider-group">
-                    <label for="ctx-slider">Context Memory: <span id="ctx-val">10</span> msgs</label>
+                    <label for="ctx-slider">Context Memory: <span id="ctx-val">10</span></label>
                     <input type="range" id="ctx-slider" min="2" max="50" step="2" value="10">
                 </div>
             </div>
@@ -96,7 +84,7 @@
     <main id="chat-wrapper">
         <div id="chat-log"></div>
         <div class="control-panel">
-            <button id="attach-img-btn" class="secondary-btn" style="height: 50px; width: 50px; padding: 0; display: flex; justify-content: center; align-items: center; font-size: 1.2rem;">📎</button>
+            <button id="attach-img-btn" class="control-btn">📎</button>
             <input type="file" id="image-upload" accept="image/png, image/jpeg, image/webp" class="hidden">
             
             <div id="image-preview-container" class="hidden">
@@ -104,15 +92,29 @@
                 <button id="clear-img-btn">&times;</button>
             </div>
             
-            <textarea id="prompt" class="glass-input" placeholder="Message..." style="min-height: 50px; max-height: 150px; resize: none; flex: 1; padding: 14px;"></textarea>
+            <textarea id="prompt" class="glass-input" placeholder="Message..."></textarea>
             
             <div style="display: flex; gap: 5px;">
-                <button id="mic-btn" class="secondary-btn" style="height: 50px; width: 50px; padding: 0; display: flex; justify-content: center; align-items: center; font-size: 1.2rem;">🎤</button>
-                <button id="stop-btn" class="secondary-btn hidden" style="height: 50px; width: 50px; padding: 0; display: flex; justify-content: center; align-items: center; color: #fb7185; font-size: 1.2rem;">⏹</button>
-                <button id="send-btn" class="primary-btn" style="height: 50px; margin-top: 0; padding: 0 20px;">Send</button>
+                <button id="mic-btn" class="control-btn">🎤</button>
+                <button id="send-btn" class="primary-btn" style="height: 50px; margin: 0; padding: 0 20px;">Send</button>
+                <button id="stop-btn" class="secondary-btn hidden" style="height: 50px; margin: 0; padding: 0 20px; color: #fb7185;">Stop</button>
             </div>
         </div>
     </main>
+
+    <div id="profileModal" class="modal-overlay hidden">
+        <div class="glass-panel" style="max-width: 700px;">
+            <button id="closeProfileModal" class="close-btn">&times;</button>
+            <h2 style="margin-bottom: 20px; font-size: 1.5rem;">Profile & Memory</h2>
+            <label style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 5px; display: block;">System Directives (How the AI should behave)</label>
+            <textarea id="system-prompt" class="glass-input" style="height: 120px; margin-bottom: 15px;"></textarea>
+            <label style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 5px; display: block;">Narrative Context (Current world state or background)</label>
+            <textarea id="narrative-prompt" class="glass-input" style="height: 120px; margin-bottom: 15px;"></textarea>
+            <label style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 5px; display: block;">Persistent Memory (Facts the AI must remember)</label>
+            <textarea id="persistent-memory" class="glass-input" style="height: 120px; margin-bottom: 20px; border-color: rgba(254, 207, 239, 0.4);"></textarea>
+            <button id="saveProfileBtn" class="primary-btn" style="margin-top: 0;">Save & Close</button>
+        </div>
+    </div>
 
     <div id="authModal" class="modal-overlay hidden">
         <div class="glass-panel">
@@ -134,19 +136,25 @@
             <div id="char-list" style="display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 25px; max-height: 250px; overflow-y: auto;"></div>
             <h3 style="margin-bottom: 15px; font-size: 1rem; color: var(--text-muted);">Create New</h3>
             <input type="text" id="newCharName" class="glass-input" placeholder="Character Name" style="margin-bottom: 10px;">
-            <input type="text" id="newCharAvatar" class="glass-input" placeholder="Avatar Image URL (Optional)" style="margin-bottom: 10px;">
+            <input type="text" id="newCharAvatar" class="glass-input" placeholder="Avatar Image URL" style="margin-bottom: 10px;">
             <textarea id="newCharPrompt" class="glass-input" placeholder="System Directives / Persona" style="height: 100px; margin-bottom: 15px;"></textarea>
-            <button id="saveCharBtn" class="primary-btn" style="width: 100%; margin-top:0;">Save to Vault</button>
+            <button id="saveCharBtn" class="primary-btn" style="margin-top:0;">Save to Vault</button>
         </div>
     </div>
 
-    <div id="voiceModal" class="modal-overlay hidden">
-        <div class="glass-panel text-center">
-            <h2 style="margin-bottom: 15px; color: #fb7185;">Hardware Utilization Warning</h2>
-            <p style="margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);">Voice recognition requires pulling a 75MB neural network directly into your browser cache. It will utilize your local CPU to process audio continuously. Ensure you are connected to Wi-Fi and disable any aggressive battery saving modes.</p>
-            <div class="action-row" style="justify-content: center;">
-                <button id="cancel-voice-btn" class="secondary-btn">Cancel</button>
-                <button id="accept-voice-btn" class="primary-btn" style="background: #fb7185; color: white; margin-top:0;">Acknowledge & Load</button>
+    <div id="voice-bottom-sheet" class="voice-sheet hidden">
+        <div class="voice-sheet-content">
+            <h3 id="voice-status-text" style="color: #ffb6c1; margin-bottom: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">Initializing Model...</h3>
+            <canvas id="voice-visualizer"></canvas>
+            <div class="voice-controls">
+                <button id="voice-interrupt-btn" class="voice-btn stop">Stop Audio</button>
+                <button id="voice-cancel-btn" class="voice-btn cancel">Close</button>
+            </div>
+            <div id="voice-progress-container" class="hidden" style="width: 100%; margin-top: 15px;">
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px;">Downloading Neural Models (Once per device)</div>
+                <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+                    <div id="voice-progress-bar" style="width: 0%; height: 100%; background: #ffb6c1; transition: width 0.2s;"></div>
+                </div>
             </div>
         </div>
     </div>
