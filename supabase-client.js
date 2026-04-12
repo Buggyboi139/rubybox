@@ -56,8 +56,9 @@ window.AuthManager = (() => {
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
+    if(window.App && window.App.initUI) window.App.initUI();
     window.AuthManager.checkSession().then(user => {
-        if(window.AppManager) window.AppManager.initialize(user);
+        if(window.App) window.App.initialize(user);
     });
 
     document.getElementById('login-btn').addEventListener('click', () => {
@@ -74,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pass = document.getElementById('authPassword').value;
             const user = await window.AuthManager.login(email, pass);
             document.getElementById('authModal').classList.add('hidden');
-            if(window.AppManager) window.AppManager.initialize(user);
+            if(window.App) window.App.initialize(user);
         } catch(e) {
             alert(e.message);
         }
@@ -86,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pass = document.getElementById('authPassword').value;
             const user = await window.AuthManager.signup(email, pass);
             document.getElementById('authModal').classList.add('hidden');
-            if(window.AppManager) window.AppManager.initialize(user);
+            if(window.App) window.App.initialize(user);
         } catch(e) {
             alert(e.message);
         }
