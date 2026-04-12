@@ -37,8 +37,8 @@
                 <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
             </optgroup>
             <optgroup label="DeepSeek">
+                <option value="deepseek/deepseek-chat" selected>DeepSeek V3</option>
                 <option value="deepseek/deepseek-r1">DeepSeek R1</option>
-                <option value="deepseek/deepseek-chat">DeepSeek V3</option>
             </optgroup>
             <optgroup label="Meta">
                 <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
@@ -65,7 +65,12 @@
             <button id="clear-btn" class="secondary-btn" style="color: #fb7185; border-color: rgba(251, 113, 133, 0.3);">New Chat</button>
             <button id="compress-btn" class="secondary-btn">Heal</button>
         </div>
-        <button id="download-btn" class="secondary-btn" style="margin-top: 10px; width: 100%;">Export JSON</button>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+            <button id="download-btn" class="secondary-btn" style="width: 100%;">Export Vault</button>
+            <button id="import-btn" class="secondary-btn" style="width: 100%;">Import Vault</button>
+        </div>
+        <input type="file" id="import-file" class="hidden" accept=".json,.enc">
     </aside>
 
     <main id="chat-wrapper">
