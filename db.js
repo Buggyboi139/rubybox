@@ -38,7 +38,7 @@ window.App.loadConversationHistory = async function(convId, renderList = true) {
 
 window.App.loadUserSettings = async function() {
     if (!window.App.user) return;
-    const { data } = await window.supabaseClient.from('user_settings').select('*').eq('user_id', window.App.user.id).single();
+    const { data } = await window.supabaseClient.from('profiles').select('*').eq('id', window.App.user.id).single();
     if (data) {
         if (data.api_key) window.App.UI.apiKey.value = data.api_key;
         if (data.system_prompt) window.App.UI.sysPrompt.value = data.system_prompt;
@@ -53,7 +53,7 @@ window.App.loadUserSettings = async function() {
 window.App.saveUserSettings = async function() {
     if (!window.App.user) return;
     const settings = {
-        user_id: window.App.user.id,
+        id: window.App.user.id,
         api_key: window.App.UI.apiKey.value,
         system_prompt: window.App.UI.sysPrompt.value,
         narrative_prompt: window.App.UI.narrativePrompt.value,
@@ -62,8 +62,8 @@ window.App.saveUserSettings = async function() {
         model: window.App.UI.model.value,
         voice_mode: window.App.UI.voiceMode.value
     };
-    await window.supabaseClient.from('user_settings').upsert([settings]);
-    window.App.showToast('Settings saved');
+    await window.supabaseClient.from('profiles').upsert([settings]);
+    window.App.showToast('Profile saved');
 };
 
 window.App.loadCharacters = async function() {
