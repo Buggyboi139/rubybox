@@ -57,7 +57,7 @@ window.AuthManager = (() => {
 
 document.addEventListener('DOMContentLoaded', () => {
     window.AuthManager.checkSession().then(user => {
-        if(user && window.AppManager) window.AppManager.initialize(user);
+        if(window.AppManager) window.AppManager.initialize(user);
     });
 
     document.getElementById('login-btn').addEventListener('click', () => {
