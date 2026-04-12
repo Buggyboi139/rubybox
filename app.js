@@ -10,6 +10,7 @@ window.AppManager = (() => {
         imagePreviewContainer: document.getElementById('image-preview-container'),
         imagePreview: document.getElementById('image-preview'),
         clearImgBtn: document.getElementById('clear-img-btn'),
+        status: document.getElementById('status-badge'),
         model: document.getElementById('model-select'),
         apiKey: document.getElementById('api-key'),
         sysPrompt: document.getElementById('system-prompt'),
@@ -62,6 +63,7 @@ window.AppManager = (() => {
     let currentConversationId = null;
     let listenersBound = false;
     let attachedImageBase64 = null;
+    let isSidebarHidden = false;
     
     let state = {
         history: [],
@@ -76,14 +78,22 @@ window.AppManager = (() => {
 
     async function initialize(authenticatedUser) {
         user = authenticatedUser;
-        if (!listenersBound) { setupEventListeners(); listenersBound = true; }
+        
+        if (!listenersBound) {
+            setupEventListeners();
+            listenersBound = true;
+        }
+
         if (!user) return;
 
         await loadUserSettings();
         await loadCharacters();
         await loadConversations();
 
-        if (!currentConversationId) await startNewChat();
+        if (!currentConversationId) {
+            await startNewChat();
+        }
+        
         VoiceManager.init(handleTranscriptionSubmit, handleVoiceStateChange);
     }
 
@@ -217,12 +227,13 @@ window.AppManager = (() => {
     }
 
     async function generateChatTitle(firstPrompt, convId) {
+        if (!UI.apiKey.value) return;
         try {
             const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${UI.apiKey.value}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    model: "google/gemini-2.0-flash-001",
+                    model: UI.model.value,
                     messages: [{ role: "user", content: `Summarize this into a 3-5 word title. Only output the title: ${firstPrompt}` }],
                     stream: false
                 })
@@ -544,7 +555,16 @@ window.AppManager = (() => {
 
     function setupEventListeners() {
         UI.chatLog.addEventListener('scroll', () => { isAutoScrolling = UI.chatLog.scrollHeight - UI.chatLog.scrollTop - UI.chatLog.clientHeight < 50; });
-        UI.menuBtn.addEventListener('click', () => { UI.sidebar.classList.toggle('show'); UI.overlay.classList.toggle('show'); });
+        UI.menuBtn.addEventListener('click', () => {
+            if(window.innerWidth > 768) {
+                isSidebarHidden = !isSidebarHidden;
+                if(isSidebarHidden) UI.sidebar.classList.add('hidden-sidebar');
+                else UI.sidebar.classList.remove('hidden-sidebar');
+            } else {
+                UI.sidebar.classList.toggle('show');
+                UI.overlay.classList.toggle('show');
+            }
+        });
         UI.overlay.addEventListener('click', () => { UI.sidebar.classList.remove('show'); UI.overlay.classList.remove('show'); });
 
         UI.profileBtn.addEventListener('click', () => { UI.profileModal.classList.remove('hidden'); UI.sidebar.classList.remove('show'); UI.overlay.classList.remove('show'); });
@@ -597,7 +617,8 @@ window.AppManager = (() => {
             const avatar = UI.newCharAvatar.value.trim();
             const prompt = UI.newCharPrompt.value.trim();
             if (name && prompt && user) {
-                await window.supabaseClient.from('characters').insert([{ user_id: user.id, name, avatar, system_prompt: prompt }]);
+                const { error } = await window.supabaseClient.from('characters').insert([{ user_id: user.id, name, avatar, system_prompt: prompt }]);
+                if (error) return console.error(error);
                 UI.newCharName.value = ""; UI.newCharAvatar.value = ""; UI.newCharPrompt.value = "";
                 loadCharacters();
             }
