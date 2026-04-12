@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RubyBox Harness</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.json">
+</head>
+<body>
+<button id="menu-toggle" class="glass-btn">☰</button>
+<aside id="sidebar" class="glass-panel">
+<h2>RubyBox.chat</h2>
+<input type="password" id="api-key" placeholder="OpenRouter API Key" class="glass-input">
+<select id="model-select" class="glass-input">
+<option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
+<option value="qwen/qwen-2.5-coder-32b-instruct">Qwen 2.5 Coder</option>
+<option value="mistralai/mistral-nemo">Mistral Nemo</option>
+</select>
+<div class="metrics">
+<span>Session Cost: </span><span id="cost-display">$0.0000</span>
+</div>
+<button id="compress-btn" class="glass-btn">Force Compression</button>
+<button id="clear-btn" class="glass-btn">Purge Memory</button>
+</aside>
+<main id="chat-wrapper" class="glass-panel">
+<div id="chat-header">
+<span id="model-label">ORCHESTRATOR IDLE</span>
+<span id="status"></span>
+</div>
+<div id="chat-log"></div>
+<div id="input-area">
+<textarea id="prompt" class="glass-input" placeholder="Initiate task sequence..."></textarea>
+<button id="send-btn" class="glass-btn">►</button>
+</div>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
