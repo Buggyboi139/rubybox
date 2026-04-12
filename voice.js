@@ -2,12 +2,9 @@ const VoiceManager = (() => {
     let globalAudioContext;
     let globalAnalyser;
     let micAnalyser;
-    let microphone;
-    let javascriptNode;
     let canvas, canvasCtx;
     
     let currentState = 'idle';
-    let silenceTimer;
     let ttsQueue = [];
     let activeSources = [];
     let nextStartTime = 0;
@@ -20,6 +17,10 @@ const VoiceManager = (() => {
     
     let onTranscription = null;
     let onStateChange = null;
+    
+    let nativeRecognition = null;
+    let nativeSynth = window.speechSynthesis;
+    let vadInstance = null;
 
     const workerCode = `
     import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.1.2';
@@ -126,6 +127,20 @@ const VoiceManager = (() => {
         };
         sttWorker.postMessage({ type: 'init' });
         drawVisualizer();
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            nativeRecognition = new SpeechRecognition();
+            nativeRecognition.continuous = false;
+            nativeRecognition.interimResults = false;
+            nativeRecognition.onresult = (event) => {
+                const text = event.results[0][0].transcript;
+                if(onTranscription) onTranscription(text);
+                changeState('thinking');
+            };
+            nativeRecognition.onerror = () => { changeState('idle'); };
+            nativeRecognition.onend = () => { if (currentState === 'listening') changeState('idle'); };
+        }
     }
 
     function playDing() {
@@ -146,71 +161,53 @@ const VoiceManager = (() => {
     async function startListening() {
         currentSessionId++;
         isStreamComplete = false;
-        
-        if (!globalAudioContext) {
-            globalAudioContext = new AudioContext({ sampleRate: 16000 });
-            globalAnalyser = globalAudioContext.createAnalyser();
-            globalAnalyser.connect(globalAudioContext.destination);
-        }
-        if (globalAudioContext.state === 'suspended') await globalAudioContext.resume();
-
-        activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
-        activeSources = [];
         ttsQueue = [];
         sentenceBuffer = "";
         isGenerating = false;
         nextStartTime = 0;
+        activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
+        activeSources = [];
+        nativeSynth.cancel();
+
+        const mode = window.App && window.App.state && window.App.state.settings ? window.App.state.settings.voiceMode : 'local';
+
+        if (mode === 'native' && nativeRecognition) {
+            changeState('listening');
+            playDing();
+            try { nativeRecognition.start(); } catch(e){}
+            return;
+        }
+
+        if (!globalAudioContext) {
+            globalAudioContext = new AudioContext({ sampleRate: 16000 });
+            globalAnalyser = globalAudioContext.createAnalyser();
+            globalAnalyser.connect(globalAudioContext.destination);
+            micAnalyser = globalAudioContext.createAnalyser();
+        }
+        if (globalAudioContext.state === 'suspended') await globalAudioContext.resume();
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            microphone = globalAudioContext.createMediaStreamSource(stream);
-            micAnalyser = globalAudioContext.createAnalyser();
-            micAnalyser.smoothingTimeConstant = 0.5;
-            micAnalyser.fftSize = 1024;
+            const source = globalAudioContext.createMediaStreamSource(stream);
+            source.connect(micAnalyser);
 
-            javascriptNode = globalAudioContext.createScriptProcessor(1024, 1, 1);
-            microphone.connect(micAnalyser);
-            micAnalyser.connect(javascriptNode);
-            javascriptNode.connect(globalAudioContext.destination);
-
-            let audioChunks = [];
             changeState('listening');
             playDing();
 
-            javascriptNode.onaudioprocess = (e) => {
-                if (currentState !== 'listening') return;
-                const inputData = e.inputBuffer.getChannelData(0);
-                audioChunks.push(new Float32Array(inputData));
-
-                const array = new Uint8Array(micAnalyser.frequencyBinCount);
-                micAnalyser.getByteFrequencyData(array);
-                let sum = 0;
-                for (let i = 0; i < array.length; i++) sum += array[i];
-                const average = sum / array.length;
-
-                if (average > 10) {
-                    clearTimeout(silenceTimer);
-                    silenceTimer = setTimeout(() => {
-                        stopRecording(audioChunks);
-                    }, 1500); 
-                }
-            };
+            if (window.vad && window.vad.MicVAD) {
+                vadInstance = await window.vad.MicVAD.new({
+                    stream: stream,
+                    onSpeechEnd: (audio) => {
+                        vadInstance.pause();
+                        sttWorker.postMessage({ type: 'transcribe', audio });
+                    }
+                });
+                vadInstance.start();
+            } else {
+                changeState('error');
+            }
         } catch (err) {
             changeState('error');
-        }
-    }
-
-    function stopRecording(chunks) {
-        if (microphone) microphone.disconnect();
-        if (javascriptNode) javascriptNode.disconnect();
-        clearTimeout(silenceTimer);
-
-        if (chunks && chunks.length > 0) {
-            const totalLen = chunks.reduce((acc, c) => acc + c.length, 0);
-            const combined = new Float32Array(totalLen);
-            let offset = 0;
-            chunks.forEach(c => { combined.set(c, offset); offset += c.length; });
-            sttWorker.postMessage({ type: 'transcribe', audio: combined });
         }
     }
 
@@ -261,7 +258,20 @@ const VoiceManager = (() => {
         if (isGenerating || ttsQueue.length === 0) return;
         isGenerating = true;
         const text = ttsQueue.shift();
-        sttWorker.postMessage({ type: 'speak', text, sessionId: currentSessionId });
+        
+        const mode = window.App && window.App.state && window.App.state.settings ? window.App.state.settings.voiceMode : 'local';
+        if (mode === 'native') {
+            changeState('speaking');
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.onend = () => {
+                isGenerating = false;
+                processQueue();
+                checkConversationTurn();
+            };
+            nativeSynth.speak(utterance);
+        } else {
+            sttWorker.postMessage({ type: 'speak', text, sessionId: currentSessionId });
+        }
     }
 
     function scheduleAudio(bufferData, sampleRate) {
@@ -290,7 +300,9 @@ const VoiceManager = (() => {
     }
 
     function checkConversationTurn() {
-        if (activeSources.length === 0 && ttsQueue.length === 0 && !isGenerating && isStreamComplete && currentState !== 'listening') {
+        const mode = window.App && window.App.state && window.App.state.settings ? window.App.state.settings.voiceMode : 'local';
+        let speaking = mode === 'native' ? nativeSynth.speaking : activeSources.length > 0;
+        if (!speaking && ttsQueue.length === 0 && !isGenerating && isStreamComplete && currentState !== 'listening') {
             isStreamComplete = false;
             startListening();
         }
@@ -304,6 +316,7 @@ const VoiceManager = (() => {
         currentSessionId++;
         activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
         activeSources = [];
+        nativeSynth.cancel();
         ttsQueue = [];
         sentenceBuffer = "";
         isGenerating = false;
@@ -316,14 +329,14 @@ const VoiceManager = (() => {
         currentSessionId++;
         activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
         activeSources = [];
+        nativeSynth.cancel();
+        if (nativeRecognition) try { nativeRecognition.stop(); } catch(e){}
+        if (vadInstance) { vadInstance.destroy(); vadInstance = null; }
         ttsQueue = [];
         sentenceBuffer = "";
         isGenerating = false;
         nextStartTime = 0;
         isStreamComplete = false;
-        if (microphone) microphone.disconnect();
-        if (javascriptNode) javascriptNode.disconnect();
-        clearTimeout(silenceTimer);
         changeState('idle');
     }
 
