@@ -3,7 +3,6 @@ const UI = {
     prompt: document.getElementById('prompt'),
     sendBtn: document.getElementById('send-btn'),
     stopBtn: document.getElementById('stop-btn'),
-    costDisplay: document.getElementById('cost-display'),
     status: document.getElementById('status-badge'),
     model: document.getElementById('model-select'),
     apiKey: document.getElementById('api-key'),
@@ -33,12 +32,17 @@ marked.setOptions({
 });
 
 let controller = null;
+let isAutoScrolling = true;
 let state = JSON.parse(localStorage.getItem('rb_glass_state')) || {
     history: [],
-    cost: 0,
     memory: "",
     characters: []
 };
+
+UI.chatLog.addEventListener('scroll', () => {
+    const { scrollTop, scrollHeight, clientHeight } = UI.chatLog;
+    isAutoScrolling = scrollHeight - scrollTop - clientHeight < 50;
+});
 
 const save = () => {
     state.memory = UI.persistMem.value;
@@ -51,7 +55,6 @@ const load = () => {
     UI.apiKey.value = localStorage.getItem('rb_glass_key') || "";
     UI.sysPrompt.value = localStorage.getItem('rb_glass_sys') || "";
     UI.persistMem.value = state.memory || "";
-    UI.costDisplay.textContent = `$${state.cost.toFixed(5)}`;
     renderHistory();
     renderCharacters();
 };
@@ -69,7 +72,7 @@ function renderCharacters() {
         div.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div class="char-title">${DOMPurify.sanitize(c.name)}</div>
-                <button class="char-del" data-index="${index}">×</button>
+                <button class="char-del" data-index="${index}" style="background:transparent; border:none; color:#fb7185; cursor:pointer; font-size:1.2rem;">×</button>
             </div>
             <div class="char-preview">${DOMPurify.sanitize(c.prompt)}</div>
         `;
@@ -95,26 +98,58 @@ function addMessage(role, content, streaming = false) {
         div = document.createElement('div');
         div.className = `msg ${role}`;
         if (streaming) div.id = 'streaming-box';
+        
         const inner = document.createElement('div');
         inner.className = 'content';
+        div.appendChild(inner);
+
         if (!streaming && role !== 'system') {
-            const del = document.createElement('button');
-            del.className = 'msg-del-btn';
-            del.innerHTML = '×';
-            del.onclick = () => {
+            const actions = document.createElement('div');
+            actions.style.marginTop = '10px';
+            actions.style.display = 'flex';
+            actions.style.gap = '10px';
+            actions.style.justifyContent = 'flex-end';
+
+            if (role === 'assistant') {
+                const regenBtn = document.createElement('button');
+                regenBtn.className = 'secondary-btn';
+                regenBtn.style.padding = '4px 8px';
+                regenBtn.style.fontSize = '0.75rem';
+                regenBtn.innerText = 'Regenerate';
+                regenBtn.onclick = () => {
+                    const index = Array.from(UI.chatLog.children).indexOf(div);
+                    state.history.splice(index, 1);
+                    div.remove();
+                    save();
+                    execute();
+                };
+                actions.appendChild(regenBtn);
+            }
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'secondary-btn';
+            delBtn.style.padding = '4px 8px';
+            delBtn.style.fontSize = '0.75rem';
+            delBtn.style.color = '#fb7185';
+            delBtn.innerText = 'Delete';
+            delBtn.onclick = () => {
                 const index = Array.from(UI.chatLog.children).indexOf(div);
                 state.history.splice(index, 1);
                 div.remove();
                 save();
             };
-            div.appendChild(del);
+            actions.appendChild(delBtn);
+            div.appendChild(actions);
         }
-        div.appendChild(inner);
+        
         UI.chatLog.appendChild(div);
     }
     const target = div.querySelector('.content');
-    target.innerHTML = DOMPurify.sanitize(marked.parse(content));
-    UI.chatLog.scrollTo({ top: UI.chatLog.scrollHeight, behavior: 'smooth' });
+    target.innerHTML = DOMPurify.sanitize(marked.parse(content), { ADD_TAGS: ['think'] });
+    
+    if (isAutoScrolling) {
+        UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
+    }
     return target;
 }
 
@@ -177,11 +212,14 @@ async function execute() {
                 stream: true
             })
         });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let fullText = "";
         let buffer = "";
         const box = addMessage('ai', "", true);
+        
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -195,8 +233,10 @@ async function execute() {
                     const data = JSON.parse(cleanLine);
                     const delta = data.choices[0].delta.content || "";
                     fullText += delta;
-                    box.innerHTML = DOMPurify.sanitize(marked.parse(fullText));
-                    UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
+                    box.innerHTML = DOMPurify.sanitize(marked.parse(fullText), { ADD_TAGS: ['think'] });
+                    if (isAutoScrolling) {
+                        UI.chatLog.scrollTop = UI.chatLog.scrollHeight;
+                    }
                 } catch (e) {}
             }
         }
