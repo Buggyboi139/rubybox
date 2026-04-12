@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RubyBox | Glass</title>
+    <title>RubyBox | Networked</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -18,7 +19,16 @@
     
     <aside id="sidebar" class="side-menu">
         <div class="logo-container"><span class="logo-text">RubyBox</span></div>
-        <input type="password" id="api-key" placeholder="API Key" class="glass-input" style="margin-bottom: 15px;">
+        
+        <div id="auth-panel" style="margin-bottom: 15px;">
+            <button id="login-btn" class="primary-btn" style="padding: 10px;">Sign In / Register</button>
+            <div id="user-info" class="hidden" style="text-align: center; color: #ffb6c1; font-weight: 600; font-size: 0.9rem;">
+                <span id="user-email-display"></span>
+                <button id="logout-btn" class="secondary-btn" style="margin-top: 10px; padding: 6px; width: 100%; font-size: 0.8rem;">Sign Out</button>
+            </div>
+        </div>
+
+        <input type="password" id="api-key" placeholder="OpenRouter API Key" class="glass-input" style="margin-bottom: 15px;">
         
         <select id="model-select" class="glass-input" style="margin-bottom: 15px;">
             <optgroup label="Anthropic">
@@ -63,9 +73,6 @@
             <button id="clear-char-btn">&times;</button>
         </div>
 
-        <textarea id="system-prompt" class="glass-input" placeholder="System Directives..." style="height: 100px; margin-bottom: 15px;"></textarea>
-        <textarea id="persistent-memory" class="glass-input" placeholder="Memory..." style="height: 100px; margin-bottom: 15px; border-color: rgba(254, 207, 239, 0.4);"></textarea>
-        
         <div class="stats-panel">
             <div id="status-badge" style="color: #ffb6c1; font-weight: 700;">READY</div>
         </div>
@@ -73,15 +80,9 @@
         <button id="chars-btn" class="primary-btn" style="margin-bottom: 10px; background: rgba(255,255,255,0.05); color: #ffb6c1; border: 1px solid var(--border-highlight);">Characters Vault</button>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <button id="clear-btn" class="secondary-btn" style="color: #fb7185; border-color: rgba(251, 113, 133, 0.3);">New Chat</button>
-            <button id="compress-btn" class="secondary-btn">Heal</button>
+            <button id="new-chat-btn" class="secondary-btn" style="color: #fb7185; border-color: rgba(251, 113, 133, 0.3);">New Chat</button>
+            <button id="conversations-btn" class="secondary-btn">History</button>
         </div>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-            <button id="download-btn" class="secondary-btn" style="width: 100%;">Export</button>
-            <button id="import-btn" class="secondary-btn" style="width: 100%;">Import</button>
-        </div>
-        <input type="file" id="import-file" class="hidden" accept=".json,.enc">
     </aside>
 
     <main id="chat-wrapper">
@@ -89,13 +90,27 @@
         <div class="control-panel">
             <textarea id="prompt" class="glass-input" placeholder="Message..." style="height: 60px; resize: none; flex: 1;"></textarea>
             <div style="display: flex; flex-direction: column; gap: 5px; width: 100px;">
+                <button id="mic-btn" class="secondary-btn" style="flex: 1; padding: 0;">Mic</button>
                 <button id="stop-btn" class="secondary-btn hidden" style="flex: 1; color: #fb7185; border-color: rgba(251, 113, 133, 0.3); padding: 0;">Stop</button>
                 <button id="send-btn" class="primary-btn" style="flex: 1; padding: 0;">Send</button>
             </div>
         </div>
     </main>
 
-    <div id="charModal" class="modal-overlay">
+    <div id="authModal" class="modal-overlay hidden">
+        <div class="glass-panel">
+            <button id="closeAuthModal" class="close-btn">&times;</button>
+            <h2 style="margin-bottom: 20px; font-size: 1.5rem;">Authentication</h2>
+            <input type="email" id="authEmail" class="glass-input" placeholder="Email" style="margin-bottom: 10px;">
+            <input type="password" id="authPassword" class="glass-input" placeholder="Password" style="margin-bottom: 15px;">
+            <div style="display: flex; gap: 10px;">
+                <button id="authLoginBtn" class="primary-btn" style="margin-top: 0; flex: 1;">Login</button>
+                <button id="authSignupBtn" class="secondary-btn" style="margin-top: 0; flex: 1;">Sign Up</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="charModal" class="modal-overlay hidden">
         <div class="glass-panel">
             <button id="closeCharModal" class="close-btn">&times;</button>
             <h2 style="margin-bottom: 20px; font-size: 1.5rem;">Vault</h2>
@@ -104,10 +119,31 @@
             <input type="text" id="newCharName" class="glass-input" placeholder="Character Name" style="margin-bottom: 10px;">
             <input type="text" id="newCharAvatar" class="glass-input" placeholder="Avatar Image URL (Optional)" style="margin-bottom: 10px;">
             <textarea id="newCharPrompt" class="glass-input" placeholder="System Directives / Persona" style="height: 100px; margin-bottom: 15px;"></textarea>
-            <button id="saveCharBtn" class="primary-btn" style="width: 100%;">Save to Vault</button>
+            <button id="saveCharBtn" class="primary-btn" style="width: 100%; margin-top:0;">Save to Vault</button>
+        </div>
+    </div>
+
+    <div id="conversationsModal" class="modal-overlay hidden">
+        <div class="glass-panel">
+            <button id="closeConversationsModal" class="close-btn">&times;</button>
+            <h2 style="margin-bottom: 20px; font-size: 1.5rem;">Chat History</h2>
+            <div id="conversations-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <div id="voiceModal" class="modal-overlay hidden">
+        <div class="glass-panel text-center">
+            <h2 style="margin-bottom: 15px; color: #fb7185;">Hardware Utilization Warning</h2>
+            <p style="margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);">Voice recognition requires pulling a 75MB neural network directly into your browser cache. It will utilize your local CPU to process audio continuously. Ensure you are connected to Wi-Fi and disable any aggressive battery saving modes.</p>
+            <div class="action-row" style="justify-content: center;">
+                <button id="cancel-voice-btn" class="secondary-btn">Cancel</button>
+                <button id="accept-voice-btn" class="primary-btn" style="background: #fb7185; color: white; margin-top:0;">Acknowledge & Load</button>
+            </div>
         </div>
     </div>
     
+    <script src="supabase-client.js"></script>
+    <script src="voice.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
