@@ -39,7 +39,8 @@ const VoiceManager = (() => {
                 stt = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
                     progress_callback: data => self.postMessage({ type: 'download_progress', data })
                 });
-                tts = await pipeline('text-to-speech', 'Xenova/speecht5_tts', {
+                tts = await pipeline('text-to-speech', 'onnx-community/Kokoro-82M-v1.0-ONNX', {
+                    dtype: 'q8',
                     progress_callback: data => self.postMessage({ type: 'download_progress', data })
                 });
                 self.postMessage({ type: 'ready' });
@@ -55,8 +56,7 @@ const VoiceManager = (() => {
             }
         } else if (e.data.type === 'speak') {
             try {
-                const speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
-                const out = await tts(e.data.text, { speaker_embeddings });
+                const out = await tts(e.data.text, { voice: 'af_heart' });
                 self.postMessage({ type: 'audio', buffer: out.audio, sampleRate: out.sampling_rate, sessionId: e.data.sessionId });
             } catch (err) {
                 self.postMessage({ type: 'audio_error', sessionId: e.data.sessionId });
@@ -237,7 +237,7 @@ const VoiceManager = (() => {
         }
 
         if (!globalAudioContext) {
-            globalAudioContext = new AudioContext({ sampleRate: 16000 });
+            globalAudioContext = new AudioContext({ sampleRate: 24000 });
             globalAnalyser = globalAudioContext.createAnalyser();
             globalAnalyser.connect(globalAudioContext.destination);
             micAnalyser = globalAudioContext.createAnalyser();
