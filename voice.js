@@ -57,8 +57,8 @@ const VoiceManager = (() => {
             }
         } else if (e.data.type === 'speak') {
             try {
-                const out = await tts.generate(e.data.text, { voice: 'af_bella' });
-                self.postMessage({ type: 'audio', buffer: out.audio, sampleRate: out.sampling_rate, sessionId: e.data.sessionId });
+                const out = await tts.generate(e.data.text, { voice: 'bf_isabella' });
+                self.postMessage({ type: 'audio', buffer: out.audio, sampleRate: out.sampling_rate, sessionId: e.data.sessionId, delay: e.data.delay });
             } catch (err) {
                 self.postMessage({ type: 'audio_error', sessionId: e.data.sessionId });
             }
@@ -131,7 +131,7 @@ const VoiceManager = (() => {
                 if (e.data.sessionId !== currentSessionId) return;
                 isGenerating = false;
                 const trimmed = trimSilence(e.data.buffer, e.data.sampleRate);
-                scheduleAudio(trimmed, e.data.sampleRate);
+                scheduleAudio(trimmed, e.data.sampleRate, e.data.delay);
                 processQueue();
                 checkConversationTurn();
             } else if (e.data.type === 'audio_error') {
@@ -284,7 +284,7 @@ const VoiceManager = (() => {
         if (sentenceBuffer.includes('<think>')) return;
         
         let cleaned = sentenceBuffer.replace(/[*#~`]/g, '').replace(/\[.*?\]\(.*?\)/g, '');
-        let parts = cleaned.split(/([.!?\n])/);
+        let parts = cleaned.split(/([.,!?:;\n])/);
         
         if (parts.length > 1) {
             let nextBuffer = parts.pop();
@@ -292,7 +292,7 @@ const VoiceManager = (() => {
             for (let i = 0; i < parts.length; i++) {
                 currentSentence += parts[i];
                 if (i % 2 === 1) {
-                    let isAbbrev = /(Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St|vs|etc|ie|eg)[.!?]$/i.test(currentSentence);
+                    let isAbbrev = /(Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St|vs|etc|ie|eg)[.,!?:;\n]$/i.test(currentSentence);
                     if (!isAbbrev) {
                         if (currentSentence.trim().length > 1) queueText(currentSentence.trim());
                         currentSentence = "";
@@ -328,19 +328,23 @@ const VoiceManager = (() => {
 
     function queueText(text) {
         if (!/[a-zA-Z0-9]/.test(text)) return;
-        ttsQueue.push(text);
+        let delay = 1.0;
+        if (/[,;:]["']?$/.test(text)) {
+            delay = 0.2;
+        }
+        ttsQueue.push({ text, delay });
         processQueue();
     }
 
     function processQueue() {
         if (isGenerating || ttsQueue.length === 0) return;
         isGenerating = true;
-        const text = ttsQueue.shift();
+        const item = ttsQueue.shift();
         
         const mode = window.App && window.App.state && window.App.state.settings ? window.App.state.settings.voiceMode : 'local';
         if (mode === 'native') {
             changeState('speaking');
-            const utterance = new SpeechSynthesisUtterance(text);
+            const utterance = new SpeechSynthesisUtterance(item.text);
             utterance.onend = () => {
                 isGenerating = false;
                 processQueue();
@@ -348,11 +352,11 @@ const VoiceManager = (() => {
             };
             nativeSynth.speak(utterance);
         } else {
-            sttWorker.postMessage({ type: 'speak', text, sessionId: currentSessionId });
+            sttWorker.postMessage({ type: 'speak', text: item.text, sessionId: currentSessionId, delay: item.delay });
         }
     }
 
-    function scheduleAudio(bufferData, sampleRate) {
+    function scheduleAudio(bufferData, sampleRate, delay) {
         if (!globalAudioContext) return;
         const buffer = globalAudioContext.createBuffer(1, bufferData.length, sampleRate);
         buffer.getChannelData(0).set(bufferData);
@@ -369,7 +373,7 @@ const VoiceManager = (() => {
         
         if (currentState !== 'speaking') changeState('speaking');
 
-        nextStartTime += buffer.duration + 1.0;
+        nextStartTime += buffer.duration + (delay !== undefined ? delay : 1.0);
         
         source.onended = () => {
             activeSources = activeSources.filter(s => s !== source);
