@@ -46,6 +46,7 @@ window.App.loadUserSettings = async function() {
     if (data) {
         if (data.encrypted_api_key) window.App.UI.apiKey.value = data.encrypted_api_key;
         if (data.google_tts_key) window.App.UI.googleTtsKey.value = data.google_tts_key;
+        if (data.google_tts_voice) window.App.UI.googleVoiceSelect.value = data.google_tts_voice;
         if (data.system_prompt) window.App.UI.sysPrompt.value = data.system_prompt;
         if (data.narrative_prompt) window.App.UI.narrativePrompt.value = data.narrative_prompt;
         if (data.temperature) { window.App.UI.tempSlider.value = data.temperature; window.App.UI.tempVal.textContent = data.temperature; }
@@ -62,6 +63,7 @@ window.App.saveUserSettings = async function() {
         user_id: window.App.user.id,
         encrypted_api_key: window.App.UI.apiKey.value,
         google_tts_key: window.App.UI.googleTtsKey.value,
+        google_tts_voice: window.App.UI.googleVoiceSelect.value,
         system_prompt: window.App.UI.sysPrompt.value,
         narrative_prompt: window.App.UI.narrativePrompt.value,
         temperature: parseFloat(window.App.UI.tempSlider.value),
