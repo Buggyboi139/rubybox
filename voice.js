@@ -266,7 +266,7 @@ const VoiceManager = (() => {
                     const dummySource = globalAudioContext.createMediaStreamSource(stream);
                     dummySource.connect(micAnalyser);
                 } else {
-                    throw new Error("VAD unvailable");
+                    throw new Error("VAD unavailable");
                 }
             } catch (err) {
                 setupLegacySilenceDetection(stream);
@@ -277,14 +277,14 @@ const VoiceManager = (() => {
     }
 
     let sentenceBuffer = "";
-
+    
     function receiveDelta(delta) {
         sentenceBuffer += delta;
-        sentenceBuffer = sentenceBuffer.replace(/<think>[\s\S]*?(<\/think>)/g, '');
+        sentenceBuffer = sentenceBuffer.replace(/<think>[\s\S]*?(<\/think>)?/g, '');
         if (sentenceBuffer.includes('<think>')) return;
-
+        
         let cleaned = sentenceBuffer.replace(/[*#~`]/g, '').replace(/\[.*?\]\(.*?\)/g, '');
-        let parts = cleaned.split(/([.!?]["']?\s+)/);
+        let parts = cleaned.split(/([.!?])/);
         
         if (parts.length > 1) {
             let nextBuffer = parts.pop();
@@ -292,7 +292,7 @@ const VoiceManager = (() => {
             for (let i = 0; i < parts.length; i++) {
                 currentSentence += parts[i];
                 if (i % 2 === 1) {
-                    let isAbbrev = /(Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St|vs|etc|ie|eg)[.!?]["']?\s+$/i.test(currentSentence);
+                    let isAbbrev = /(Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St|vs|etc|ie|eg)[.!?]$/i.test(currentSentence);
                     if (!isAbbrev) {
                         if (currentSentence.trim().length > 1) queueText(currentSentence.trim());
                         currentSentence = "";
@@ -301,7 +301,17 @@ const VoiceManager = (() => {
             }
             sentenceBuffer = currentSentence + nextBuffer;
         } else {
-            sentenceBuffer = cleaned;
+            if (cleaned.length > 150) {
+                let spaceIndex = cleaned.lastIndexOf(' ', 150);
+                if (spaceIndex > 0) {
+                    queueText(cleaned.substring(0, spaceIndex).trim());
+                    sentenceBuffer = cleaned.substring(spaceIndex);
+                } else {
+                    sentenceBuffer = cleaned;
+                }
+            } else {
+                sentenceBuffer = cleaned;
+            }
         }
     }
 
@@ -352,7 +362,7 @@ const VoiceManager = (() => {
         source.connect(globalAnalyser);
 
         const currentTime = globalAudioContext.currentTime;
-        if (nextStartTime < currentTime) nextStartTime = currentTime + 0.05;
+        if (nextStartTime < currentTime) nextStartTime = currentTime + 0.1;
         
         source.start(nextStartTime);
         activeSources.push(source);
