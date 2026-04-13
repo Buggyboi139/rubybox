@@ -46,6 +46,7 @@ window.App.loadUserSettings = async function() {
         if (data.temperature) { window.App.UI.tempSlider.value = data.temperature; window.App.UI.tempVal.textContent = data.temperature; }
         if (data.context_limit) { window.App.UI.ctxSlider.value = data.context_limit; window.App.UI.ctxVal.textContent = data.context_limit; }
         if (data.default_model) window.App.UI.model.value = data.default_model;
+        if (data.voice_mode) window.App.UI.voiceMode.value = data.voice_mode;
     }
 };
 
@@ -58,7 +59,8 @@ window.App.saveUserSettings = async function() {
         narrative_prompt: window.App.UI.narrativePrompt.value,
         temperature: parseFloat(window.App.UI.tempSlider.value),
         context_limit: parseInt(window.App.UI.ctxSlider.value),
-        default_model: window.App.UI.model.value
+        default_model: window.App.UI.model.value,
+        voice_mode: window.App.UI.voiceMode.value
     };
     await window.supabaseClient.from('user_settings').upsert(settings, { onConflict: 'user_id' });
     window.App.showToast('Profile saved');
