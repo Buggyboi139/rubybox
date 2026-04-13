@@ -38,7 +38,55 @@ window.App.setupEventListeners = function() {
 
     window.App.UI.profileBtn.addEventListener('click', () => { window.App.UI.profileModal.classList.remove('hidden'); window.App.UI.sidebar.classList.remove('show'); window.App.UI.overlay.classList.remove('show'); });
     window.App.UI.closeProfileModal.addEventListener('click', () => window.App.UI.profileModal.classList.add('hidden'));
-    window.App.UI.saveProfileBtn.addEventListener('click', () => { window.App.saveUserSettings(); window.App.UI.profileModal.classList.add('hidden'); });
+    window.App.UI.cancelEditCharBtn.addEventListener('click', () => {
+        window.App.editingCharId = null;
+        window.App.UI.newCharName.value = "";
+        window.App.UI.newCharPrompt.value = "";
+        window.App.newCharAvatarBase64 = null;
+        window.App.UI.newCharAvatarPreview.style.display = 'none';
+        window.App.UI.newCharAvatarPreview.src = '';
+        window.App.UI.saveCharBtn.textContent = 'Save Persona';
+        window.App.UI.cancelEditCharBtn.classList.add('hidden');
+    });
+    
+    window.App.UI.saveCharBtn.addEventListener('click', async () => {
+        if (!window.App.user) {
+            window.App.showToast("Please sign in first.", "error");
+            return;
+        }
+        const name = window.App.UI.newCharName.value.trim();
+        const avatar = window.App.newCharAvatarBase64 || '';
+        const prompt = window.App.UI.newCharPrompt.value.trim();
+        
+        if (name && prompt && window.App.user) {
+            if (window.App.editingCharId) {
+                const { error } = await window.supabaseClient
+                    .from('characters')
+                    .update({ name, avatar, system_prompt: prompt })
+                    .eq('id', window.App.editingCharId);
+                
+                if (error) return window.App.showToast(error.message, "error");
+                
+                if (window.App.state.activeCharacter && window.App.state.activeCharacter.id === window.App.editingCharId) {
+                    window.App.state.activeCharacter.name = name;
+                    window.App.state.activeCharacter.avatar = avatar;
+                    window.App.state.activeCharacter.system_prompt = prompt;
+                    window.App.renderActiveCharacter();
+                }
+                window.App.showToast("Persona updated");
+            } else {
+                const { error } = await window.supabaseClient
+                    .from('characters')
+                    .insert([{ user_id: window.App.user.id, name, avatar, system_prompt: prompt }]);
+                
+                if (error) return window.App.showToast(error.message, "error");
+                window.App.showToast("Persona saved");
+            }
+            
+            window.App.UI.cancelEditCharBtn.click();
+            window.App.loadCharacters();
+        }
+    });
 
     window.App.UI.sysPrompt.addEventListener('change', window.App.saveUserSettings);
     window.App.UI.narrativePrompt.addEventListener('change', window.App.saveUserSettings);
