@@ -297,7 +297,8 @@ const VoiceManager = (() => {
         
         sentenceBuffer += delta;
         let cleaned = sentenceBuffer.replace(/[*#~`]/g, '').replace(/\[.*?\]\(.*?\)/g, '');
-        let parts = cleaned.split(/([.,!?:;\n])/);
+        
+        let parts = cleaned.split(/([.!?]+|\n{2,})/);
         
         if (parts.length > 1) {
             let nextBuffer = parts.pop();
@@ -305,7 +306,7 @@ const VoiceManager = (() => {
             for (let i = 0; i < parts.length; i++) {
                 currentSentence += parts[i];
                 if (i % 2 === 1) {
-                    let isAbbrev = /(Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St|vs|etc|ie|eg)[.,!?:;\n]$/i.test(currentSentence);
+                    let isAbbrev = /(Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St|vs|etc|ie|eg)[.!?]$/i.test(currentSentence);
                     if (!isAbbrev) {
                         if (currentSentence.trim().length > 1) queueText(currentSentence.trim());
                         currentSentence = "";
@@ -314,8 +315,8 @@ const VoiceManager = (() => {
             }
             sentenceBuffer = currentSentence + nextBuffer;
         } else {
-            if (cleaned.length > 150) {
-                let spaceIndex = cleaned.lastIndexOf(' ', 150);
+            if (cleaned.length > 250) {
+                let spaceIndex = cleaned.lastIndexOf(' ', 250);
                 if (spaceIndex > 0) {
                     queueText(cleaned.substring(0, spaceIndex).trim());
                     sentenceBuffer = cleaned.substring(spaceIndex);
@@ -341,10 +342,7 @@ const VoiceManager = (() => {
 
     function queueText(text) {
         if (!/[a-zA-Z0-9]/.test(text)) return;
-        let delay = 1.0;
-        if (/[,;:]["']?$/.test(text)) {
-            delay = 0.2;
-        }
+        let delay = 0.2;
         ttsQueue.push({ text, delay });
         processQueue();
     }
