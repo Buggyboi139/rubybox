@@ -28,19 +28,40 @@ window.App.renderCharacters = function() {
         div.className = 'char-card';
         const avatarSrc = c.avatar || window.App.DEFAULT_AI_AVATAR;
         div.innerHTML = `
+            <button class="char-edit" data-id="${c.id}">✎</button>
             <button class="char-del" data-id="${c.id}">&times;</button>
             <img src="${DOMPurify.sanitize(avatarSrc)}" alt="avatar">
             <div class="char-title">${DOMPurify.sanitize(c.name)}</div>
             <div class="char-preview-tooltip">${DOMPurify.sanitize(c.system_prompt)}</div>
         `;
+        
         div.addEventListener('click', (e) => {
-            if (e.target.classList.contains('char-del')) return;
+            if (e.target.classList.contains('char-del') || e.target.classList.contains('char-edit')) return;
             window.App.state.activeCharacter = c;
             window.App.UI.sysPrompt.value = c.system_prompt;
             window.App.saveUserSettings();
             window.App.renderActiveCharacter();
             window.App.UI.charModal.classList.add('hidden');
         });
+
+        div.querySelector('.char-edit').addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.App.editingCharId = c.id;
+            window.App.UI.newCharName.value = c.name;
+            window.App.UI.newCharPrompt.value = c.system_prompt;
+            if (c.avatar) {
+                window.App.newCharAvatarBase64 = c.avatar;
+                window.App.UI.newCharAvatarPreview.src = c.avatar;
+                window.App.UI.newCharAvatarPreview.style.display = 'block';
+            } else {
+                window.App.newCharAvatarBase64 = null;
+                window.App.UI.newCharAvatarPreview.src = '';
+                window.App.UI.newCharAvatarPreview.style.display = 'none';
+            }
+            window.App.UI.saveCharBtn.textContent = 'Update Persona';
+            window.App.UI.cancelEditCharBtn.classList.remove('hidden');
+        });
+
         div.querySelector('.char-del').addEventListener('click', async (e) => {
             e.stopPropagation();
             await window.supabaseClient.from('characters').delete().eq('id', c.id);
@@ -48,8 +69,12 @@ window.App.renderCharacters = function() {
                 window.App.state.activeCharacter = null;
                 window.App.renderActiveCharacter();
             }
+            if (window.App.editingCharId === c.id) {
+                window.App.UI.cancelEditCharBtn.click();
+            }
             window.App.loadCharacters();
         });
+        
         window.App.UI.charList.appendChild(div);
     });
 };
