@@ -44,6 +44,7 @@ window.App.loadUserSettings = async function() {
         if (data.narrative_prompt) window.App.UI.narrativePrompt.value = data.narrative_prompt;
         if (data.temperature) { window.App.UI.tempSlider.value = data.temperature; window.App.UI.tempVal.textContent = data.temperature; }
         if (data.context_limit) { window.App.UI.ctxSlider.value = data.context_limit; window.App.UI.ctxVal.textContent = data.context_limit; }
+        if (data.max_tokens) { window.App.UI.maxTokensSlider.value = data.max_tokens; window.App.UI.maxTokensVal.textContent = data.max_tokens; }
         if (data.default_model) window.App.UI.model.value = data.default_model;
         if (data.voice_mode) window.App.UI.voiceMode.value = data.voice_mode;
     }
@@ -58,6 +59,7 @@ window.App.saveUserSettings = async function() {
         narrative_prompt: window.App.UI.narrativePrompt.value,
         temperature: parseFloat(window.App.UI.tempSlider.value),
         context_limit: parseInt(window.App.UI.ctxSlider.value),
+        max_tokens: parseInt(window.App.UI.maxTokensSlider.value),
         default_model: window.App.UI.model.value,
         voice_mode: window.App.UI.voiceMode.value
     };
