@@ -26,6 +26,11 @@ const VoiceManager = (() => {
     let nativeSynth = window.speechSynthesis;
     let vadInstance = null;
 
+    let minBufferItems = 2;
+    let isPlaying = false;
+    let sentenceBuffer = "";
+    let isThinking = false;
+
     const workerCode = `
     import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
     import { KokoroTTS } from "https://cdn.jsdelivr.net/npm/kokoro-js/+esm";
@@ -57,7 +62,7 @@ const VoiceManager = (() => {
             }
         } else if (e.data.type === 'speak') {
             try {
-                const out = await tts.generate(e.data.text, { voice: 'af_bella' });
+                const out = await tts.generate(e.data.text, { voice: 'bf_bella' });
                 self.postMessage({ type: 'audio', buffer: out.audio, sampleRate: out.sampling_rate, sessionId: e.data.sessionId, delay: e.data.delay });
             } catch (err) {
                 self.postMessage({ type: 'audio_error', sessionId: e.data.sessionId });
@@ -222,6 +227,7 @@ const VoiceManager = (() => {
         ttsQueue = [];
         sentenceBuffer = "";
         isGenerating = false;
+        isPlaying = false;
         nextStartTime = 0;
         clearTimeout(silenceTimer);
         activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
@@ -275,10 +281,6 @@ const VoiceManager = (() => {
             changeState('error');
         }
     }
-
-    let sentenceBuffer = "";
-    
-    let isThinking = false;
 
     function receiveDelta(delta) {
         if (delta.includes('<think>')) isThinking = true;
@@ -337,6 +339,10 @@ const VoiceManager = (() => {
 
     function markStreamComplete() {
         isStreamComplete = true;
+        if (!isPlaying && ttsQueue.length > 0) {
+            isPlaying = true;
+            processQueue();
+        }
         checkConversationTurn();
     }
 
@@ -344,11 +350,23 @@ const VoiceManager = (() => {
         if (!/[a-zA-Z0-9]/.test(text)) return;
         let delay = 0.2;
         ttsQueue.push({ text, delay });
-        processQueue();
+        
+        if (!isPlaying && (ttsQueue.length >= minBufferItems || isStreamComplete)) {
+            isPlaying = true;
+            processQueue();
+        } else if (isPlaying && !isGenerating) {
+            processQueue();
+        }
     }
 
     function processQueue() {
-        if (isGenerating || ttsQueue.length === 0) return;
+        if (isGenerating || ttsQueue.length === 0) {
+            if (ttsQueue.length === 0 && isStreamComplete) {
+                isPlaying = false;
+            }
+            return;
+        }
+        
         isGenerating = true;
         const item = ttsQueue.shift();
         
@@ -384,7 +402,7 @@ const VoiceManager = (() => {
         
         if (currentState !== 'speaking') changeState('speaking');
 
-        nextStartTime += buffer.duration + (delay !== undefined ? delay : 1.0);
+        nextStartTime += buffer.duration + (delay !== undefined ? delay : 0.2);
         
         source.onended = () => {
             activeSources = activeSources.filter(s => s !== source);
@@ -413,6 +431,7 @@ const VoiceManager = (() => {
         ttsQueue = [];
         sentenceBuffer = "";
         isGenerating = false;
+        isPlaying = false;
         nextStartTime = 0;
         isStreamComplete = false;
         changeState('idle');
@@ -431,6 +450,7 @@ const VoiceManager = (() => {
         ttsQueue = [];
         sentenceBuffer = "";
         isGenerating = false;
+        isPlaying = false;
         nextStartTime = 0;
         isStreamComplete = false;
         changeState('idle');
