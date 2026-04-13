@@ -277,14 +277,17 @@ const VoiceManager = (() => {
     }
 
     let sentenceBuffer = "";
-    
+
     function receiveDelta(delta) {
         sentenceBuffer += delta;
+        sentenceBuffer = sentenceBuffer.replace(/<think>[\s\S]*?(<\/think>)/g, '');
+        if (sentenceBuffer.includes('<think>')) return;
+
         let cleaned = sentenceBuffer.replace(/[*#~`]/g, '').replace(/\[.*?\]\(.*?\)/g, '');
-        let parts = cleaned.split(/([.!?]["']?\s+)/);
+        let parts = cleaned.split(/([.,!?:;]["']?\s+)/);
         
         if (parts.length > 1) {
-            sentenceBuffer = parts.pop();
+            let nextBuffer = parts.pop();
             let currentSentence = "";
             for (let i = 0; i < parts.length; i++) {
                 currentSentence += parts[i];
@@ -296,7 +299,7 @@ const VoiceManager = (() => {
                     }
                 }
             }
-            sentenceBuffer = currentSentence + sentenceBuffer;
+            sentenceBuffer = currentSentence + nextBuffer;
         } else {
             sentenceBuffer = cleaned;
         }
