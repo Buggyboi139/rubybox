@@ -187,7 +187,10 @@
                 <input type="file" id="newCharAvatarFile" accept="image/*" class="hidden">
             </div>
             <textarea id="newCharPrompt" class="glass-input" placeholder="System Directives / Persona" style="height: 100px; margin-bottom: 15px;"></textarea>
-            <button id="saveCharBtn" class="primary-btn" style="margin-top:0;">Save Persona</button>
+            <div style="display: flex; gap: 10px;">
+                <button id="cancelEditCharBtn" class="secondary-btn hidden" style="margin-top:0; flex: 1;">Cancel</button>
+                <button id="saveCharBtn" class="primary-btn" style="margin-top:0; flex: 2;">Save Persona</button>
+            </div>
         </div>
     </div>
 
