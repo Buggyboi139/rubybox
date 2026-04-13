@@ -1,11 +1,10 @@
 const VoiceManager = (() => {
+    const GOOGLE_TTS_API_KEY = 'YOUR_GOOGLE_CLOUD_API_KEY_HERE';
+    
     let globalAudioContext;
     let globalAnalyser;
     let micAnalyser;
     let canvas, canvasCtx;
-    let legacyScriptNode;
-    let legacySource;
-    
     let currentState = 'initializing';
     let ttsQueue = [];
     let activeSources = [];
@@ -15,7 +14,6 @@ const VoiceManager = (() => {
     let isGenerating = false;
     let currentSessionId = 0;
     let isStreamComplete = false;
-    let modelProgress = {};
     let pendingStart = false;
     let silenceTimer = null;
     
@@ -26,39 +24,32 @@ const VoiceManager = (() => {
     let nativeSynth = window.speechSynthesis;
     let vadInstance = null;
 
-    let minBufferItems = 2;
+    let minBufferItems = 1;
     let isPlaying = false;
     let sentenceBuffer = "";
     let isThinking = false;
 
     const workerCode = `
-    import { PiperWebWorkerEngine, HuggingFaceVoiceProvider } from 'https://cdn.jsdelivr.net/npm/piper-tts-web/+esm';
-
-    let engine;
+    import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
+    env.allowLocalModels = false;
+    let stt;
 
     self.onmessage = async (e) => {
         if (e.data.type === 'init') {
             try {
-                const voiceProvider = new HuggingFaceVoiceProvider();
-                engine = new PiperWebWorkerEngine({ voiceProvider });
+                stt = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
+                    progress_callback: data => self.postMessage({ type: 'download_progress', data })
+                });
                 self.postMessage({ type: 'ready' });
             } catch (err) {
                 self.postMessage({ type: 'error', message: err.message });
             }
-        } else if (e.data.type === 'speak') {
+        } else if (e.data.type === 'transcribe') {
             try {
-                const voiceId = 'en_US-kristin-medium'; 
-                const result = await engine.generate(e.data.text, voiceId, 0);
-                const arrayBuffer = await result.audio.arrayBuffer();
-                self.postMessage({ 
-                    type: 'audio', 
-                    buffer: new Float32Array(arrayBuffer), 
-                    sampleRate: 22050, 
-                    sessionId: e.data.sessionId,
-                    delay: e.data.delay 
-                });
+                const result = await stt(e.data.audio);
+                self.postMessage({ type: 'transcription', text: result.text });
             } catch (err) {
-                self.postMessage({ type: 'audio_error', sessionId: e.data.sessionId });
+                self.postMessage({ type: 'error', message: err.message });
             }
         }
     };
@@ -71,19 +62,6 @@ const VoiceManager = (() => {
 
     function setPendingStart(val) {
         pendingStart = val;
-    }
-
-    function trimSilence(bufferData, sampleRate) {
-        let start = 0;
-        let end = bufferData.length - 1;
-        const threshold = 0.01;
-        while (start < bufferData.length && Math.abs(bufferData[start]) < threshold) start++;
-        while (end > 0 && Math.abs(bufferData[end]) < threshold) end--;
-        if (start >= end) return bufferData;
-        const padding = Math.floor(sampleRate * 0.05);
-        start = Math.max(0, start - padding);
-        end = Math.min(bufferData.length - 1, end + padding);
-        return bufferData.slice(start, end + 1);
     }
 
     function init(transcriptionCallback, stateCallback) {
@@ -106,18 +84,11 @@ const VoiceManager = (() => {
                 }
             } else if (e.data.type === 'error') {
                 changeState('error');
-            } else if (e.data.type === 'audio') {
-                if (e.data.sessionId !== currentSessionId) return;
-                isGenerating = false;
-                const trimmed = trimSilence(e.data.buffer, e.data.sampleRate);
-                scheduleAudio(trimmed, e.data.sampleRate, e.data.delay);
-                processQueue();
-                checkConversationTurn();
-            } else if (e.data.type === 'audio_error') {
-                if (e.data.sessionId !== currentSessionId) return;
-                isGenerating = false;
-                processQueue();
-                checkConversationTurn();
+            } else if (e.data.type === 'download_progress') {
+                document.getElementById('voice-progress-container').classList.remove('hidden');
+            } else if (e.data.type === 'transcription') {
+                if(onTranscription) onTranscription(e.data.text);
+                changeState('thinking');
             }
         };
         sttWorker.postMessage({ type: 'init' });
@@ -167,7 +138,7 @@ const VoiceManager = (() => {
         nativeSynth.cancel();
 
         if (!globalAudioContext) {
-            globalAudioContext = new AudioContext({ sampleRate: 22050 });
+            globalAudioContext = new AudioContext();
             globalAnalyser = globalAudioContext.createAnalyser();
             globalAnalyser.connect(globalAudioContext.destination);
             micAnalyser = globalAudioContext.createAnalyser();
@@ -259,20 +230,49 @@ const VoiceManager = (() => {
         }
     }
 
-    function processQueue() {
+    async function processQueue() {
         if (isGenerating || ttsQueue.length === 0) {
             if (ttsQueue.length === 0 && isStreamComplete) isPlaying = false;
             return;
         }
         isGenerating = true;
         const item = ttsQueue.shift();
-        sttWorker.postMessage({ type: 'speak', text: item.text, sessionId: currentSessionId, delay: item.delay });
+        const activeSessionId = currentSessionId;
+
+        try {
+            const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_TTS_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    input: { text: item.text },
+                    voice: { languageCode: 'en-US', name: 'en-US-Journey-F' },
+                    audioConfig: { audioEncoding: 'MP3' }
+                })
+            });
+
+            if (!response.ok) throw new Error('API Error');
+            const data = await response.json();
+            
+            if (data.audioContent && activeSessionId === currentSessionId) {
+                const binaryString = window.atob(data.audioContent);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+                
+                const decodedBuffer = await globalAudioContext.decodeAudioData(bytes.buffer);
+                scheduleAudio(decodedBuffer, item.delay);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            isGenerating = false;
+            if (activeSessionId === currentSessionId) processQueue();
+            checkConversationTurn();
+        }
     }
 
-    function scheduleAudio(bufferData, sampleRate, delay) {
+    function scheduleAudio(buffer, delay) {
         if (!globalAudioContext) return;
-        const buffer = globalAudioContext.createBuffer(1, bufferData.length, sampleRate);
-        buffer.getChannelData(0).set(bufferData);
         
         const source = globalAudioContext.createBufferSource();
         source.buffer = buffer;
@@ -298,6 +298,10 @@ const VoiceManager = (() => {
             isStreamComplete = false;
             startListening();
         }
+    }
+    
+    function interruptAndListen() {
+        startListening();
     }
 
     function stopAll() {
@@ -338,5 +342,5 @@ const VoiceManager = (() => {
         }
     }
 
-    return { init, startListening, receiveDelta, commitBuffer, markStreamComplete, stopAll, setPendingStart, getState: () => currentState };
+    return { init, startListening, receiveDelta, commitBuffer, markStreamComplete, interruptAndListen, stopAll, setPendingStart, getState: () => currentState };
 })();
