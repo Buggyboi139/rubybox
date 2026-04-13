@@ -48,6 +48,12 @@ window.App.setupEventListeners = function() {
         window.App.UI.saveCharBtn.textContent = 'Save Persona';
         window.App.UI.cancelEditCharBtn.classList.add('hidden');
     });
+
+    window.App.UI.persistMem.addEventListener('change', async (e) => {
+        if (window.App.currentConversationId) {
+            await window.supabaseClient.from('conversations').update({ summary_memory: e.target.value.trim() }).eq('id', window.App.currentConversationId);
+        }
+    });
     
     window.App.UI.saveCharBtn.addEventListener('click', async () => {
         if (!window.App.user) {
