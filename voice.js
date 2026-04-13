@@ -56,7 +56,7 @@ const VoiceManager = (() => {
             }
         } else if (e.data.type === 'speak') {
             try {
-                const out = await tts(e.data.text, { voice: 'af_heart' });
+                const out = await tts(e.data.text, { voice: 'bf_isabella' });
                 self.postMessage({ type: 'audio', buffer: out.audio, sampleRate: out.sampling_rate, sessionId: e.data.sessionId });
             } catch (err) {
                 self.postMessage({ type: 'audio_error', sessionId: e.data.sessionId });
