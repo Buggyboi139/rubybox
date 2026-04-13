@@ -73,6 +73,14 @@ window.App.execute = async function(fromVoice = false) {
             contentPayload = [];
             if (input) contentPayload.push({ type: "text", text: input });
             const finalImgUrl = await window.App.uploadImageToStorage(window.App.attachedImageBase64);
+            
+            if (!finalImgUrl) {
+                window.App.showToast("Image upload failed.", "error");
+                window.App.UI.stopBtn.classList.add('hidden');
+                window.App.UI.sendBtn.classList.remove('hidden');
+                return;
+            }
+            
             contentPayload.push({ type: "image_url", image_url: { url: finalImgUrl } });
         }
 
