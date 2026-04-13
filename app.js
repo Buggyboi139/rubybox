@@ -38,6 +38,12 @@ window.App.setupEventListeners = function() {
 
     window.App.UI.profileBtn.addEventListener('click', () => { window.App.UI.profileModal.classList.remove('hidden'); window.App.UI.sidebar.classList.remove('show'); window.App.UI.overlay.classList.remove('show'); });
     window.App.UI.closeProfileModal.addEventListener('click', () => window.App.UI.profileModal.classList.add('hidden'));
+    if (window.App.UI.saveProfileBtn) {
+        window.App.UI.saveProfileBtn.addEventListener('click', () => {
+            window.App.saveUserSettings();
+            window.App.UI.profileModal.classList.add('hidden');
+        });
+    }
     window.App.UI.cancelEditCharBtn.addEventListener('click', () => {
         window.App.editingCharId = null;
         window.App.UI.newCharName.value = "";
