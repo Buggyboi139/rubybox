@@ -86,6 +86,26 @@
                     <label>Google Cloud TTS Key</label>
                     <input type="password" id="google-tts-key" class="glass-input" placeholder="AIzaSy...">
                 </div>
+                <div class="input-group" style="margin-top: 15px;">
+                    <label style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 5px; display: block;">Google TTS Voice</label>
+                    <select id="google-voice-select" class="glass-input" style="font-size: 0.9rem !important; padding: 10px;">
+                        <optgroup label="Journey (High Quality)">
+                            <option value="en-US-Journey-F" selected>US English - Female (Journey)</option>
+                            <option value="en-US-Journey-D">US English - Male (Journey)</option>
+                            <option value="en-GB-Journey-F">UK English - Female (Journey)</option>
+                            <option value="en-GB-Journey-D">UK English - Male (Journey)</option>
+                        </optgroup>
+                        <optgroup label="Neural2 (Standard HD)">
+                            <option value="en-US-Neural2-C">US English - Female (Neural2)</option>
+                            <option value="en-US-Neural2-A">US English - Male (Neural2)</option>
+                            <option value="en-AU-Neural2-A">Australian - Female (Neural2)</option>
+                        </optgroup>
+                        <optgroup label="WaveNet (Cheaper/Free Tier)">
+                            <option value="en-US-Wavenet-F">US English - Female (WaveNet)</option>
+                            <option value="en-US-Wavenet-D">US English - Male (WaveNet)</option>
+                        </optgroup>
+                    </select>
+                </div>
                 <div style="margin-top: 15px;">
                     <input type="password" id="api-key" placeholder="OpenRouter Key" class="glass-input" style="margin-bottom: 15px;">
                     <select id="model-select" class="glass-input" style="margin-bottom: 15px; font-size: 0.9rem !important; padding: 10px;">
