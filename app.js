@@ -185,24 +185,6 @@ window.App.setupEventListeners = function() {
     window.App.UI.closeCharModal.addEventListener('click', () => window.App.UI.charModal.classList.add('hidden'));
     window.App.UI.clearCharBtn.addEventListener('click', () => { window.App.state.activeCharacter = null; window.App.renderActiveCharacter(); });
 
-    window.App.UI.saveCharBtn.addEventListener('click', async () => {
-        if (!window.App.user) {
-            window.App.showToast("Please sign in first.", "error");
-            return;
-        }
-        const name = window.App.UI.newCharName.value.trim();
-        const avatar = window.App.newCharAvatarBase64 || '';
-        const prompt = window.App.UI.newCharPrompt.value.trim();
-        if (name && prompt && window.App.user) {
-            const { error } = await window.supabaseClient.from('characters').insert([{ user_id: window.App.user.id, name, avatar, system_prompt: prompt }]);
-            if (error) return window.App.showToast(error.message, "error");
-            window.App.UI.newCharName.value = ""; window.App.UI.newCharPrompt.value = ""; window.App.newCharAvatarBase64 = null;
-            window.App.UI.newCharAvatarPreview.style.display = 'none'; window.App.UI.newCharAvatarPreview.src = '';
-            window.App.loadCharacters();
-            window.App.showToast("Persona saved");
-        }
-    });
-
     window.App.UI.prompt.addEventListener('input', function() { 
         this.style.height = '50px'; 
         this.style.height = (this.scrollHeight) + 'px'; 
