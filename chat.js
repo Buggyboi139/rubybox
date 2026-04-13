@@ -99,7 +99,8 @@ window.App.execute = async function(fromVoice = false) {
     
     const limit = parseInt(window.App.UI.ctxSlider.value);
     const recent = window.App.state.history.slice(-limit).map(m => ({ role: m.role, content: m.content }));
-    const systemContent = `${window.App.UI.sysPrompt.value}\n\n[NARRATIVE CONTEXT]\n${window.App.UI.narrativePrompt.value}\n\n[PERSISTENT MEMORY]\n${window.App.UI.persistMem.value}`;
+    const activeCharPrompt = window.App.state.activeCharacter ? window.App.state.activeCharacter.system_prompt + "\n\n" : "";
+    const systemContent = `${activeCharPrompt}${window.App.UI.sysPrompt.value}\n\n[NARRATIVE CONTEXT]\n${window.App.UI.narrativePrompt.value}\n\n[PERSISTENT MEMORY]\n${window.App.UI.persistMem.value}`;
     const messages = [{ role: "system", content: systemContent }, ...recent];
     
     try {
