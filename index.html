@@ -14,8 +14,13 @@
     
     <script>
       if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for(let registration of registrations) {
+            registration.unregister();
+          }
+        });
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js');
+          navigator.serviceWorker.register('/sw.js?v=' + new Date().getTime());
         });
       }
     </script>
@@ -110,6 +115,10 @@
                     <div class="slider-group">
                         <label for="ctx-slider">Context Memory: <span id="ctx-val">10</span></label>
                         <input type="range" id="ctx-slider" min="2" max="50" step="2" value="10">
+                    </div>
+                    <div class="slider-group">
+                        <label for="max-tokens-slider">Max Tokens: <span id="max-tokens-val">2000</span></label>
+                        <input type="range" id="max-tokens-slider" min="500" max="8000" step="500" value="2000">
                     </div>
                 </div>
             </details>
