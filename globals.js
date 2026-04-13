@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         persistMem: document.getElementById('persistent-memory'),
         apiKey: document.getElementById('api-key'),
         googleTtsKey: document.getElementById('google-tts-key'),
+        googleVoiceSelect: document.getElementById('google-voice-select'),
         model: document.getElementById('model-select'),
         tempSlider: document.getElementById('temp-slider'),
         tempVal: document.getElementById('temp-val'),
