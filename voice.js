@@ -284,7 +284,7 @@ const VoiceManager = (() => {
         if (sentenceBuffer.includes('<think>')) return;
         
         let cleaned = sentenceBuffer.replace(/[*#~`]/g, '').replace(/\[.*?\]\(.*?\)/g, '');
-        let parts = cleaned.split(/([.!?])/);
+        let parts = cleaned.split(/([.!?\n])/);
         
         if (parts.length > 1) {
             let nextBuffer = parts.pop();
