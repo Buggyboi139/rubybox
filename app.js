@@ -91,8 +91,11 @@ window.App.setupEventListeners = function() {
     window.App.UI.sysPrompt.addEventListener('change', window.App.saveUserSettings);
     window.App.UI.narrativePrompt.addEventListener('change', window.App.saveUserSettings);
     window.App.UI.apiKey.addEventListener('change', window.App.saveUserSettings);
-    window.App.UI.tempSlider.addEventListener('input', (e) => { window.App.UI.tempVal.textContent = e.target.value; window.App.saveUserSettings(); });
-    window.App.UI.ctxSlider.addEventListener('input', (e) => { window.App.UI.ctxVal.textContent = e.target.value; window.App.saveUserSettings(); });
+    window.App.UI.tempSlider.addEventListener('input', (e) => { window.App.UI.tempVal.textContent = e.target.value; });
+    window.App.UI.tempSlider.addEventListener('change', window.App.saveUserSettings);
+    
+    window.App.UI.ctxSlider.addEventListener('input', (e) => { window.App.UI.ctxVal.textContent = e.target.value; });
+    window.App.UI.ctxSlider.addEventListener('change', window.App.saveUserSettings);
     window.App.UI.model.addEventListener('change', window.App.saveUserSettings);
     window.App.UI.voiceMode.addEventListener('change', window.App.saveUserSettings);
     window.App.UI.chatSearch.addEventListener('input', window.App.loadConversations);
