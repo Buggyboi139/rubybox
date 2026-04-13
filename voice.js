@@ -228,7 +228,7 @@ const VoiceManager = (() => {
         activeSources = [];
         nativeSynth.cancel();
 
-        const mode = window.App && window.App.state && window.App.state.settings ? window.App.state.settings.voiceMode : 'local';
+        const mode = (window.App && window.App.UI && window.App.UI.voiceMode) ? window.App.UI.voiceMode.value : 'local';
 
         if (mode === 'native' && nativeRecognition) {
             changeState('listening');
@@ -354,7 +354,7 @@ const VoiceManager = (() => {
         isGenerating = true;
         const item = ttsQueue.shift();
         
-        const mode = window.App && window.App.state && window.App.state.settings ? window.App.state.settings.voiceMode : 'local';
+        const mode = (window.App && window.App.UI && window.App.UI.voiceMode) ? window.App.UI.voiceMode.value : 'local';
         if (mode === 'native') {
             changeState('speaking');
             const utterance = new SpeechSynthesisUtterance(item.text);
@@ -395,7 +395,7 @@ const VoiceManager = (() => {
     }
 
     function checkConversationTurn() {
-        const mode = window.App && window.App.state && window.App.state.settings ? window.App.state.settings.voiceMode : 'local';
+        const mode = (window.App && window.App.UI && window.App.UI.voiceMode) ? window.App.UI.voiceMode.value : 'local';
         let speaking = mode === 'native' ? nativeSynth.speaking : activeSources.length > 0;
         if (!speaking && ttsQueue.length === 0 && !isGenerating && isStreamComplete && currentState !== 'listening') {
             isStreamComplete = false;
