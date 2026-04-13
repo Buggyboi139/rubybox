@@ -244,6 +244,9 @@ const VoiceManager = (() => {
             return;
         }
 
+        const selectedVoice = window.App.UI.googleVoiceSelect ? window.App.UI.googleVoiceSelect.value : 'en-US-Journey-F';
+        const langCode = selectedVoice.substring(0, 5); 
+
         isGenerating = true;
         const item = ttsQueue.shift();
         const activeSessionId = currentSessionId;
@@ -254,7 +257,7 @@ const VoiceManager = (() => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     input: { text: item.text },
-                    voice: { languageCode: 'en-US', name: 'en-US-Journey-F' },
+                    voice: { languageCode: langCode, name: selectedVoice },
                     audioConfig: { audioEncoding: 'MP3' }
                 })
             });
@@ -279,7 +282,7 @@ const VoiceManager = (() => {
             checkConversationTurn();
         }
     }
-
+    
     function scheduleAudio(buffer, delay) {
         if (!globalAudioContext) return;
         
