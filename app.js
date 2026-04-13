@@ -155,6 +155,23 @@ window.App.setupEventListeners = function() {
     window.App.UI.prompt.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window.App.execute(false); } });
 };
 
+window.App.handleVoiceStateChange = function(state) {
+    const statusText = document.getElementById('voice-status-text');
+    if (!statusText) return;
+    
+    if (state === 'listening') {
+        statusText.textContent = "Listening...";
+    } else if (state === 'thinking') {
+        statusText.textContent = "Thinking...";
+    } else if (state === 'speaking') {
+        statusText.textContent = "Speaking...";
+    } else if (state === 'error') {
+        statusText.textContent = "Error";
+    } else {
+        statusText.textContent = "Ready";
+    }
+};
+
 window.App.initialize = async function(authenticatedUser) {
     window.App.user = authenticatedUser;
     let listenersBound = window.App.UI.prompt.getAttribute('data-bound');
