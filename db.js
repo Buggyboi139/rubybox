@@ -45,6 +45,7 @@ window.App.loadUserSettings = async function() {
     const { data } = await window.supabaseClient.from('user_settings').select('*').eq('user_id', window.App.user.id).single();
     if (data) {
         if (data.encrypted_api_key) window.App.UI.apiKey.value = data.encrypted_api_key;
+        if (data.google_tts_key) window.App.UI.googleTtsKey.value = data.google_tts_key;
         if (data.system_prompt) window.App.UI.sysPrompt.value = data.system_prompt;
         if (data.narrative_prompt) window.App.UI.narrativePrompt.value = data.narrative_prompt;
         if (data.temperature) { window.App.UI.tempSlider.value = data.temperature; window.App.UI.tempVal.textContent = data.temperature; }
@@ -60,6 +61,7 @@ window.App.saveUserSettings = async function() {
     const settings = {
         user_id: window.App.user.id,
         encrypted_api_key: window.App.UI.apiKey.value,
+        google_tts_key: window.App.UI.googleTtsKey.value,
         system_prompt: window.App.UI.sysPrompt.value,
         narrative_prompt: window.App.UI.narrativePrompt.value,
         temperature: parseFloat(window.App.UI.tempSlider.value),
