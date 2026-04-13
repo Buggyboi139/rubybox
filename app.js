@@ -38,12 +38,14 @@ window.App.setupEventListeners = function() {
 
     window.App.UI.profileBtn.addEventListener('click', () => { window.App.UI.profileModal.classList.remove('hidden'); window.App.UI.sidebar.classList.remove('show'); window.App.UI.overlay.classList.remove('show'); });
     window.App.UI.closeProfileModal.addEventListener('click', () => window.App.UI.profileModal.classList.add('hidden'));
+    
     if (window.App.UI.saveProfileBtn) {
         window.App.UI.saveProfileBtn.addEventListener('click', () => {
             window.App.saveUserSettings();
             window.App.UI.profileModal.classList.add('hidden');
         });
     }
+
     window.App.UI.cancelEditCharBtn.addEventListener('click', () => {
         window.App.editingCharId = null;
         window.App.UI.newCharName.value = "";
@@ -103,11 +105,16 @@ window.App.setupEventListeners = function() {
     window.App.UI.sysPrompt.addEventListener('change', window.App.saveUserSettings);
     window.App.UI.narrativePrompt.addEventListener('change', window.App.saveUserSettings);
     window.App.UI.apiKey.addEventListener('change', window.App.saveUserSettings);
+    
     window.App.UI.tempSlider.addEventListener('input', (e) => { window.App.UI.tempVal.textContent = e.target.value; });
     window.App.UI.tempSlider.addEventListener('change', window.App.saveUserSettings);
     
     window.App.UI.ctxSlider.addEventListener('input', (e) => { window.App.UI.ctxVal.textContent = e.target.value; });
     window.App.UI.ctxSlider.addEventListener('change', window.App.saveUserSettings);
+
+    window.App.UI.maxTokensSlider.addEventListener('input', (e) => { window.App.UI.maxTokensVal.textContent = e.target.value; });
+    window.App.UI.maxTokensSlider.addEventListener('change', window.App.saveUserSettings);
+    
     window.App.UI.model.addEventListener('change', window.App.saveUserSettings);
     window.App.UI.voiceMode.addEventListener('change', window.App.saveUserSettings);
     window.App.UI.chatSearch.addEventListener('input', window.App.loadConversations);
