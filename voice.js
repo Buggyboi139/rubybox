@@ -1,5 +1,5 @@
 const VoiceManager = (() => {
-    const GOOGLE_TTS_API_KEY = 'YOUR_GOOGLE_CLOUD_API_KEY_HERE';
+    const GOOGLE_TTS_API_KEY = 'AIzaSyA5H2Z6NGrFU6sT7kdUnFsM7p8eAY3hzYw';
     
     let globalAudioContext;
     let globalAnalyser;
