@@ -63,8 +63,15 @@ window.App.saveUserSettings = async function() {
         default_model: window.App.UI.model.value,
         voice_mode: window.App.UI.voiceMode.value
     };
-    await window.supabaseClient.from('user_settings').upsert(settings, { onConflict: 'user_id' });
-    window.App.showToast('Profile saved');
+    
+    const { error } = await window.supabaseClient.from('user_settings').upsert(settings, { onConflict: 'user_id' });
+    
+    if (error) {
+        console.error(error);
+        window.App.showToast(error.message, "error");
+    } else {
+        window.App.showToast('Profile saved');
+    }
 };
 
 window.App.loadCharacters = async function() {
