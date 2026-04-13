@@ -27,7 +27,8 @@ const VoiceManager = (() => {
     let vadInstance = null;
 
     const workerCode = `
-    import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.1.2';
+    import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
+    import { KokoroTTS } from "https://cdn.jsdelivr.net/npm/kokoro-js/+esm";
     env.allowLocalModels = false;
     
     let stt;
@@ -39,8 +40,8 @@ const VoiceManager = (() => {
                 stt = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en', {
                     progress_callback: data => self.postMessage({ type: 'download_progress', data })
                 });
-                tts = await pipeline('text-to-speech', 'onnx-community/Kokoro-82M-v1.0-ONNX', {
-                    dtype: 'q8',
+                tts = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
+                    dtype: "q8",
                     progress_callback: data => self.postMessage({ type: 'download_progress', data })
                 });
                 self.postMessage({ type: 'ready' });
@@ -56,7 +57,7 @@ const VoiceManager = (() => {
             }
         } else if (e.data.type === 'speak') {
             try {
-                const out = await tts(e.data.text, { voice: 'bf_isabella' });
+                const out = await tts.generate(e.data.text, { voice: 'bf_isabella' });
                 self.postMessage({ type: 'audio', buffer: out.audio, sampleRate: out.sampling_rate, sessionId: e.data.sessionId });
             } catch (err) {
                 self.postMessage({ type: 'audio_error', sessionId: e.data.sessionId });
