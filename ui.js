@@ -150,12 +150,104 @@ window.App.addMessage = function(role, content, streaming = false, msgId = null)
             };
             actions.appendChild(copyBtn);
 
-            if (role === 'user') {
-                const branchBtn = document.createElement('button');
-                branchBtn.className = 'action-icon-btn';
-                branchBtn.innerHTML = '⑂';
-                branchBtn.title = 'Branch';
-                branchBtn.onclick = () => {
+            const branchBtn = document.createElement('button');
+            branchBtn.className = 'action-icon-btn';
+            branchBtn.innerHTML = '⑂';
+            branchBtn.title = 'Branch';
+            branchBtn.onclick = () => {
+                const originalText = window.App.extractTextFromContent(content);
+                const editContainer = document.createElement('div');
+                editContainer.className = 'inline-edit-container';
+                
+                const ta = document.createElement('textarea');
+                ta.className = 'glass-input';
+                ta.value = originalText;
+                
+                const btnRow = document.createElement('div');
+                btnRow.className = 'action-row';
+                
+                const submitBtn = document.createElement('button');
+                submitBtn.className = 'primary-btn';
+                submitBtn.style.width = 'auto';
+                submitBtn.style.padding = '8px 16px';
+                submitBtn.style.marginTop = '0';
+                submitBtn.innerText = 'Submit';
+                
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'secondary-btn';
+                cancelBtn.style.width = 'auto';
+                cancelBtn.style.padding = '8px 16px';
+                cancelBtn.innerText = 'Cancel';
+                
+                btnRow.appendChild(cancelBtn);
+                btnRow.appendChild(submitBtn);
+                editContainer.appendChild(ta);
+                editContainer.appendChild(btnRow);
+                
+                msgDiv.replaceChild(editContainer, inner);
+                actions.style.display = 'none';
+
+                cancelBtn.onclick = () => {
+                    msgDiv.replaceChild(inner, editContainer);
+                    actions.style.display = 'flex';
+                };
+
+                submitBtn.onclick = async () => {
+                    const newPromptText = ta.value.trim();
+                    if (!newPromptText) return;
+                    const domNodes = Array.from(window.App.UI.chatLog.children);
+                    const domIndex = domNodes.indexOf(container);
+                    const historyToKeep = window.App.state.history.slice(0, domIndex);
+
+                    const { data: convData } = await window.supabaseClient.from('conversations').insert([{ user_id: window.App.user.id, title: 'Branched Chat' }]).select().single();
+                    if (!convData) return;
+                    window.App.currentConversationId = convData.id;
+                    window.App.state.history = [];
+                    window.App.UI.chatLog.innerHTML = "";
+
+                    for (const oldMsg of historyToKeep) {
+                        const dbContent = typeof oldMsg.content === 'string' ? oldMsg.content : JSON.stringify(oldMsg.content);
+                        const { data: msgData } = await window.supabaseClient.from('messages').insert([{ conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: oldMsg.role, content: dbContent }]).select().single();
+                        if (msgData) {
+                            window.App.state.history.push({ role: oldMsg.role, content: oldMsg.content, id: msgData.id });
+                            window.App.addMessage(oldMsg.role, oldMsg.content, false, msgData.id);
+                        }
+                    }
+                    
+                    if (role === 'user') {
+                        window.App.UI.prompt.value = newPromptText;
+                        window.App.loadConversations();
+                        window.App.execute();
+                    } else {
+                        const dbContent = typeof newPromptText === 'string' ? newPromptText : JSON.stringify(newPromptText);
+                        const { data: msgData } = await window.supabaseClient.from('messages').insert([{ conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: 'assistant', content: dbContent }]).select().single();
+                        if (msgData) {
+                            window.App.state.history.push({ role: 'assistant', content: newPromptText, id: msgData.id });
+                            window.App.addMessage('assistant', newPromptText, false, msgData.id);
+                        }
+                        window.App.loadConversations();
+                    }
+                };
+            };
+            actions.appendChild(branchBtn);
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'action-icon-btn';
+            editBtn.innerHTML = '✎';
+            editBtn.title = 'Edit & Redo';
+            editBtn.onclick = async () => {
+                if (role === 'user') {
+                    const domNodes = Array.from(window.App.UI.chatLog.children);
+                    const domIndex = domNodes.indexOf(container);
+                    window.App.UI.prompt.value = window.App.extractTextFromContent(window.App.state.history[domIndex].content);
+                    window.App.UI.prompt.style.height = 'auto'; window.App.UI.prompt.style.height = (window.App.UI.prompt.scrollHeight) + 'px';
+                    
+                    const msgsToDelete = window.App.state.history.slice(domIndex);
+                    for(const m of msgsToDelete) if(m.id) await window.supabaseClient.from('messages').delete().eq('id', m.id);
+                    
+                    window.App.state.history = window.App.state.history.slice(0, domIndex);
+                    while(window.App.UI.chatLog.children.length > domIndex) window.App.UI.chatLog.lastChild.remove();
+                } else {
                     const originalText = window.App.extractTextFromContent(content);
                     const editContainer = document.createElement('div');
                     editContainer.className = 'inline-edit-container';
@@ -172,7 +264,7 @@ window.App.addMessage = function(role, content, streaming = false, msgId = null)
                     submitBtn.style.width = 'auto';
                     submitBtn.style.padding = '8px 16px';
                     submitBtn.style.marginTop = '0';
-                    submitBtn.innerText = 'Submit';
+                    submitBtn.innerText = 'Save';
                     
                     const cancelBtn = document.createElement('button');
                     cancelBtn.className = 'secondary-btn';
@@ -196,61 +288,45 @@ window.App.addMessage = function(role, content, streaming = false, msgId = null)
                     submitBtn.onclick = async () => {
                         const newPromptText = ta.value.trim();
                         if (!newPromptText) return;
+                        
+                        if (msgId) {
+                            const dbContent = typeof newPromptText === 'string' ? newPromptText : JSON.stringify(newPromptText);
+                            await window.supabaseClient.from('messages').update({ content: dbContent }).eq('id', msgId);
+                        }
+                        
                         const domNodes = Array.from(window.App.UI.chatLog.children);
                         const domIndex = domNodes.indexOf(container);
-                        const historyToKeep = window.App.state.history.slice(0, domIndex);
-
-                        const { data: convData } = await window.supabaseClient.from('conversations').insert([{ user_id: window.App.user.id, title: 'Branched Chat' }]).select().single();
-                        if (!convData) return;
-                        window.App.currentConversationId = convData.id;
-                        window.App.state.history = [];
-                        window.App.UI.chatLog.innerHTML = "";
-
-                        for (const oldMsg of historyToKeep) {
-                            const dbContent = typeof oldMsg.content === 'string' ? oldMsg.content : JSON.stringify(oldMsg.content);
-                            const { data: msgData } = await window.supabaseClient.from('messages').insert([{ conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: oldMsg.role, content: dbContent }]).select().single();
-                            if (msgData) {
-                                window.App.state.history.push({ role: oldMsg.role, content: oldMsg.content, id: msgData.id });
-                                window.App.addMessage(oldMsg.role, oldMsg.content, false, msgData.id);
-                            }
+                        if (window.App.state.history[domIndex]) {
+                            window.App.state.history[domIndex].content = newPromptText;
                         }
-                        window.App.UI.prompt.value = newPromptText;
-                        window.App.loadConversations();
-                        window.App.execute();
+                        content = newPromptText;
+                        
+                        let renderText = newPromptText;
+                        const openThinkCount = (renderText.match(/<think>/g) || []).length;
+                        const closeThinkCount = (renderText.match(/<\/think>/g) || []).length;
+                        if (openThinkCount > closeThinkCount) {
+                            renderText += '</think>';
+                        }
+                        
+                        inner.innerHTML = DOMPurify.sanitize(marked.parse(renderText), { ADD_TAGS: ['think'] });
+                        msgDiv.replaceChild(inner, editContainer);
+                        actions.style.display = 'flex';
                     };
-                };
-                actions.appendChild(branchBtn);
+                }
+            };
+            actions.appendChild(editBtn);
 
-                const editBtn = document.createElement('button');
-                editBtn.className = 'action-icon-btn';
-                editBtn.innerHTML = '✎';
-                editBtn.title = 'Edit & Redo';
-                editBtn.onclick = async () => {
-                    const domNodes = Array.from(window.App.UI.chatLog.children);
-                    const domIndex = domNodes.indexOf(container);
-                    window.App.UI.prompt.value = window.App.extractTextFromContent(window.App.state.history[domIndex].content);
-                    window.App.UI.prompt.style.height = 'auto'; window.App.UI.prompt.style.height = (window.App.UI.prompt.scrollHeight) + 'px';
-                    
-                    const msgsToDelete = window.App.state.history.slice(domIndex);
-                    for(const m of msgsToDelete) if(m.id) await window.supabaseClient.from('messages').delete().eq('id', m.id);
-                    
-                    window.App.state.history = window.App.state.history.slice(0, domIndex);
-                    while(window.App.UI.chatLog.children.length > domIndex) window.App.UI.chatLog.lastChild.remove();
-                };
-                actions.appendChild(editBtn);
-
-                const delBtn = document.createElement('button');
-                delBtn.className = 'action-icon-btn danger';
-                delBtn.innerHTML = '×';
-                delBtn.title = 'Delete';
-                delBtn.onclick = async () => {
-                    if(msgId) await window.supabaseClient.from('messages').delete().eq('id', msgId);
-                    const index = window.App.state.history.findIndex(m => m.id === msgId);
-                    if(index > -1) window.App.state.history.splice(index, 1);
-                    container.remove();
-                };
-                actions.appendChild(delBtn);
-            }
+            const delBtn = document.createElement('button');
+            delBtn.className = 'action-icon-btn danger';
+            delBtn.innerHTML = '×';
+            delBtn.title = 'Delete';
+            delBtn.onclick = async () => {
+                if(msgId) await window.supabaseClient.from('messages').delete().eq('id', msgId);
+                const index = window.App.state.history.findIndex(m => m.id === msgId);
+                if(index > -1) window.App.state.history.splice(index, 1);
+                container.remove();
+            };
+            actions.appendChild(delBtn);
 
             if (role === 'assistant') {
                 const regenBtn = document.createElement('button');
