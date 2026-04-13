@@ -40,13 +40,12 @@ window.App.loadUserSettings = async function() {
     if (!window.App.user) return;
     const { data } = await window.supabaseClient.from('user_settings').select('*').eq('user_id', window.App.user.id).single();
     if (data) {
-        if (data.api_key) window.App.UI.apiKey.value = data.api_key;
+        if (data.encrypted_api_key) window.App.UI.apiKey.value = data.encrypted_api_key;
         if (data.system_prompt) window.App.UI.sysPrompt.value = data.system_prompt;
         if (data.narrative_prompt) window.App.UI.narrativePrompt.value = data.narrative_prompt;
         if (data.temperature) { window.App.UI.tempSlider.value = data.temperature; window.App.UI.tempVal.textContent = data.temperature; }
         if (data.context_limit) { window.App.UI.ctxSlider.value = data.context_limit; window.App.UI.ctxVal.textContent = data.context_limit; }
-        if (data.model) window.App.UI.model.value = data.model;
-        if (data.voice_mode) window.App.UI.voiceMode.value = data.voice_mode;
+        if (data.default_model) window.App.UI.model.value = data.default_model;
     }
 };
 
@@ -54,13 +53,12 @@ window.App.saveUserSettings = async function() {
     if (!window.App.user) return;
     const settings = {
         user_id: window.App.user.id,
-        api_key: window.App.UI.apiKey.value,
+        encrypted_api_key: window.App.UI.apiKey.value,
         system_prompt: window.App.UI.sysPrompt.value,
         narrative_prompt: window.App.UI.narrativePrompt.value,
         temperature: parseFloat(window.App.UI.tempSlider.value),
         context_limit: parseInt(window.App.UI.ctxSlider.value),
-        model: window.App.UI.model.value,
-        voice_mode: window.App.UI.voiceMode.value
+        default_model: window.App.UI.model.value
     };
     await window.supabaseClient.from('user_settings').upsert([settings]);
     window.App.showToast('Profile saved');
