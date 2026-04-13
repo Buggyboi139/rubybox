@@ -1,6 +1,4 @@
 const VoiceManager = (() => {
-    const GOOGLE_TTS_API_KEY = 'AIzaSyA5H2Z6NGrFU6sT7kdUnFsM7p8eAY3hzYw';
-    
     let globalAudioContext;
     let globalAnalyser;
     let micAnalyser;
@@ -235,12 +233,20 @@ const VoiceManager = (() => {
             if (ttsQueue.length === 0 && isStreamComplete) isPlaying = false;
             return;
         }
+
+        const currentGoogleKey = window.App.UI.googleTtsKey ? window.App.UI.googleTtsKey.value.trim() : '';
+        if (!currentGoogleKey) {
+            window.App.showToast('Missing Google TTS API Key', 'error');
+            stopAll();
+            return;
+        }
+
         isGenerating = true;
         const item = ttsQueue.shift();
         const activeSessionId = currentSessionId;
 
         try {
-            const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_TTS_API_KEY}`, {
+            const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${currentGoogleKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
