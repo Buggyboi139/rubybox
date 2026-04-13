@@ -85,13 +85,48 @@ window.App.execute = async function(fromVoice = false) {
         }
 
         const dbContent = typeof contentPayload === 'string' ? contentPayload : JSON.stringify(contentPayload);
-        const { data, error } = await window.supabaseClient.from('messages').insert([{ conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: 'user', content: dbContent }]).select().single();
+        
+        if (!window.App.currentConversationId) {
+            const title = input ? input.substring(0, 30).trim() + "..." : "New Chat";
+            const { data: newChat, error: chatError } = await window.supabaseClient
+                .from('conversations')
+                .insert([{ 
+                    user_id: window.App.user.id, 
+                    title: title, 
+                    summary_memory: window.App.UI.persistMem.value.trim() 
+                }])
+                .select()
+                .single();
+                
+            if (chatError) {
+                window.App.showToast("Failed to create chat", "error");
+                window.App.UI.stopBtn.classList.add('hidden');
+                window.App.UI.sendBtn.classList.remove('hidden');
+                return;
+            }
+            window.App.currentConversationId = newChat.id;
+        }
+
+        const { data, error } = await window.supabaseClient
+            .from('messages')
+            .insert([{ 
+                conversation_id: window.App.currentConversationId, 
+                user_id: window.App.user.id, 
+                role: 'user', 
+                content: dbContent 
+            }])
+            .select()
+            .single();
+            
         if (error) throw error;
         if(data) {
             window.App.state.history.push({ role: 'user', content: contentPayload, id: data.id });
             window.App.addMessage('user', contentPayload, false, data.id);
         }
-        if(window.App.state.history.length === 1) window.App.generateChatTitle(input, window.App.currentConversationId);
+        if(window.App.state.history.length === 1) {
+            window.App.generateChatTitle(input, window.App.currentConversationId);
+            window.App.loadConversations();
+        }
 
         window.App.UI.prompt.value = ""; 
         window.App.UI.prompt.style.height = '50px'; 
@@ -184,7 +219,6 @@ window.App.execute = async function(fromVoice = false) {
         }
 
     } catch (e) {
-
         if (e.name !== 'AbortError') {
             window.App.showToast(`ERROR: ${e.message}`, "error");
             window.App.addMessage('system', `ERROR: ${e.message}`);
