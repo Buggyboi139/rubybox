@@ -106,6 +106,7 @@ window.App.execute = async function(fromVoice = false) {
     }
     
     const limit = parseInt(window.App.UI.ctxSlider.value);
+    const maxTokens = parseInt(window.App.UI.maxTokensSlider.value) || 2000;
     const recent = window.App.state.history.slice(-limit).map(m => ({ role: m.role, content: m.content }));
     const activeCharPrompt = window.App.state.activeCharacter ? window.App.state.activeCharacter.system_prompt + "\n\n" : "";
     const systemContent = `${activeCharPrompt}${window.App.UI.sysPrompt.value}\n\n[NARRATIVE CONTEXT]\n${window.App.UI.narrativePrompt.value}\n\n[PERSISTENT MEMORY]\n${window.App.UI.persistMem.value}`;
@@ -116,7 +117,7 @@ window.App.execute = async function(fromVoice = false) {
             method: "POST",
             headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
             signal: window.App.controller.signal,
-            body: JSON.stringify({ model: window.App.UI.model.value, temperature: parseFloat(window.App.UI.tempSlider.value), messages: messages, stream: true })
+            body: JSON.stringify({ model: window.App.UI.model.value, temperature: parseFloat(window.App.UI.tempSlider.value), max_tokens: maxTokens, messages: messages, stream: true })
         });
         
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
