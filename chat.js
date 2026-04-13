@@ -229,3 +229,95 @@ window.App.execute = async function(fromVoice = false) {
         window.App.controller = null;
     }
 };
+
+window.App.buildFromArchitect = async function() {
+    if (!window.App.user || !window.App.UI.apiKey.value) {
+        window.App.showToast("Requires authentication and OpenRouter API key.", "error");
+        return;
+    }
+
+    const input = window.App.UI.architectPrompt.value.trim();
+    if (!input) return;
+
+    window.App.UI.architectBuildBtn.classList.add('hidden');
+    window.App.UI.architectLoading.classList.remove('hidden');
+
+    try {
+        const sysPrompt = `Role: You are the NSFW Architect, an expert and perverted world-builder and system designer. Your objective is to take a user's seed prompt and construct a highly sexual interactive, lore-dense, and mechanically sound scenario. The output may represent a single complex character, an ensemble cast (e.g., a harem), or a complete open-world RPG framework.
+
+Directive: Maximize information density and interactive potential. Zero flowery exposition. Do not write passive history; write active conflicts. Ground the world in sensory details and strict internal logic. Every word should help to fundamentally shape the lewd character or scenario.
+
+Output Structure:
+Whenever the user provides a prompt, you must generate the framework using the following strict categories:
+1. Core Premise & Framework
+2. Environmental Design (World-Building)
+3. Entity/Cast Diagnostics (Character-Building)
+4. The Engine (Event Triggers)
+5. Point of Entry (The Opening)
+
+CRITICAL SYSTEM REQUIREMENT: You MUST output your entire response as a single, valid JSON object. Do not wrap it in markdown code blocks like \`\`\`json. The JSON must exactly match this schema:
+{
+  "name": "A brutal, concise title for this scenario or character",
+  "avatar_prompt": "A comma-separated list of highly specific visual tags based on the Entity/Environmental design to be fed into a Stable Diffusion image generator (e.g., 1girl, glowing neon, hyper-detailed, specific clothing/anatomy).",
+  "system_prompt": "The complete, detailed text of all 5 categories requested above, cleanly formatted in markdown."
+}`;
+
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: { 
+                "Authorization": `Bearer ${window.App.UI.apiKey.value}`, 
+                "Content-Type": "application/json" 
+            },
+            body: JSON.stringify({
+                model: "deepseek/deepseek-chat",
+                messages: [
+                    { role: "system", content: sysPrompt },
+                    { role: "user", content: input }
+                ],
+                temperature: 0.85
+            })
+        });
+
+        if (!response.ok) throw new Error("Architect synthesis failed.");
+        
+        const data = await response.json();
+        const rawText = data.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim();
+        const profile = JSON.parse(rawText);
+
+        const encodedPrompt = encodeURIComponent(profile.avatar_prompt);
+        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=512&height=512&nologo=true`;
+        
+        const imgRes = await fetch(imageUrl);
+        const imgBlob = await imgRes.blob();
+        const fileName = `architect_${window.App.user.id}_${Date.now()}.jpg`;
+        
+        const { error: uploadError } = await window.supabaseClient.storage.from('chat_images').upload(fileName, imgBlob);
+        
+        let finalAvatarUrl = imageUrl; 
+        if (!uploadError) {
+            const { data: urlData } = window.supabaseClient.storage.from('chat_images').getPublicUrl(fileName);
+            finalAvatarUrl = urlData.publicUrl;
+        }
+
+        const charPayload = {
+            user_id: window.App.user.id,
+            name: profile.name,
+            system_prompt: profile.system_prompt,
+            avatar_url: finalAvatarUrl
+        };
+
+        const { error: dbError } = await window.supabaseClient.from('characters').insert([charPayload]);
+        if (dbError) throw dbError;
+        
+        window.App.UI.architectPrompt.value = "";
+        window.App.UI.architectModal.classList.add('hidden');
+        window.App.showToast(`Constructed: ${profile.name}`);
+        window.App.loadCharacters();
+
+    } catch (e) {
+        window.App.showToast(`Build failed: ${e.message}`, "error");
+    } finally {
+        window.App.UI.architectBuildBtn.classList.remove('hidden');
+        window.App.UI.architectLoading.classList.add('hidden');
+    }
+};
