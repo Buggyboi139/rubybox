@@ -278,11 +278,24 @@ const VoiceManager = (() => {
 
     let sentenceBuffer = "";
     
+    let isThinking = false;
+
     function receiveDelta(delta) {
-        sentenceBuffer += delta;
-        sentenceBuffer = sentenceBuffer.replace(/<think>[\s\S]*?(<\/think>)?/g, '');
-        if (sentenceBuffer.includes('<think>')) return;
+        if (delta.includes('<think>')) isThinking = true;
         
+        if (isThinking) {
+            if (delta.includes('</think>')) {
+                isThinking = false;
+                let parts = delta.split('</think>');
+                delta = parts.length > 1 ? parts[1] : "";
+            } else {
+                return;
+            }
+        }
+        
+        if (!delta) return;
+        
+        sentenceBuffer += delta;
         let cleaned = sentenceBuffer.replace(/[*#~`]/g, '').replace(/\[.*?\]\(.*?\)/g, '');
         let parts = cleaned.split(/([.,!?:;\n])/);
         
