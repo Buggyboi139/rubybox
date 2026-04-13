@@ -78,7 +78,8 @@
         
         <div style="flex-shrink: 0;">
             <button id="profile-btn" class="secondary-btn" style="margin-bottom: 10px;">Profile & Memory</button>
-            <button id="chars-btn" class="secondary-btn" style="margin-bottom: 15px;">Assistant Personas</button>
+            <button id="chars-btn" class="secondary-btn" style="margin-bottom: 10px;">Assistant Personas</button>
+            <button id="architect-btn" class="primary-btn" style="margin-bottom: 15px; background: linear-gradient(135deg, #a855f7, #ec4899); border: none;">The Architect</button>
 
             <details class="settings-panel" style="margin-bottom: 0;">
                 <summary style="color: #ffb6c1; cursor: pointer; font-weight: 600; font-size: 0.9rem; outline: none; padding: 5px 0;">Settings & API</summary>
@@ -226,6 +227,21 @@
             </div>
         </div>
     </div>
+
+    <div id="architectModal" class="modal-overlay hidden">
+        <div class="glass-panel">
+            <button id="closeArchitectModal" class="close-btn">&times;</button>
+            <h2 style="margin-bottom: 20px; font-size: 1.5rem; color: #f472b6;">The Architect</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;">Describe a scenario, world, or concept. The Architect will construct a fully realized persona and generate a unique avatar.</p>
+            <textarea id="architectPrompt" class="glass-input" placeholder="e.g. A cyberpunk detective operating in a neon-drenched Tokyo..." style="height: 120px; margin-bottom: 15px;"></textarea>
+            <button id="architectBuildBtn" class="primary-btn" style="margin-top:0; width: 100%;">Construct Persona</button>
+            <div id="architectLoading" class="hidden" style="text-align: center; margin-top: 15px; color: #ffb6c1; font-size: 0.9rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite; margin-bottom: 5px;"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+                <br>Forging reality...
+            </div>
+        </div>
+    </div>
+    <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
 
     <div id="voice-bottom-sheet" class="voice-sheet hidden">
         <div class="voice-sheet-content">
