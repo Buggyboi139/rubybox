@@ -60,7 +60,7 @@ window.App.saveUserSettings = async function() {
         context_limit: parseInt(window.App.UI.ctxSlider.value),
         default_model: window.App.UI.model.value
     };
-    await window.supabaseClient.from('user_settings').upsert([settings]);
+    await window.supabaseClient.from('user_settings').upsert(settings, { onConflict: 'user_id' });
     window.App.showToast('Profile saved');
 };
 
