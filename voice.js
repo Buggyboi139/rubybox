@@ -284,7 +284,7 @@ const VoiceManager = (() => {
         if (sentenceBuffer.includes('<think>')) return;
 
         let cleaned = sentenceBuffer.replace(/[*#~`]/g, '').replace(/\[.*?\]\(.*?\)/g, '');
-        let parts = cleaned.split(/([.,!?:;]["']?\s+)/);
+        let parts = cleaned.split(/([.!?]["']?\s+)/);
         
         if (parts.length > 1) {
             let nextBuffer = parts.pop();
@@ -359,7 +359,7 @@ const VoiceManager = (() => {
         
         if (currentState !== 'speaking') changeState('speaking');
 
-        nextStartTime += buffer.duration;
+        nextStartTime += buffer.duration + 1.0;
         
         source.onended = () => {
             activeSources = activeSources.filter(s => s !== source);
