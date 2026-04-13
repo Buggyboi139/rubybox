@@ -174,16 +174,17 @@ window.App.execute = async function(fromVoice = false) {
         }
         
         const streamContainer = document.getElementById('streaming-container');
-        if (streamContainer) streamContainer.id = "";
+        if (streamContainer) streamContainer.remove();
         
         const { data: aiData, error: aiError } = await window.supabaseClient.from('messages').insert([{ conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: 'assistant', content: fullText }]).select().single();
         if (aiError) throw aiError;
         if(aiData) {
             window.App.state.history.push({ role: 'assistant', content: fullText, id: aiData.id });
-            if(streamContainer) streamContainer.dataset.id = aiData.id;
+            window.App.addMessage('assistant', fullText, false, aiData.id);
         }
 
     } catch (e) {
+
         if (e.name !== 'AbortError') {
             window.App.showToast(`ERROR: ${e.message}`, "error");
             window.App.addMessage('system', `ERROR: ${e.message}`);
