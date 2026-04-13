@@ -9,6 +9,18 @@ window.App.setupEventListeners = function() {
         const diff = window.App.UI.chatLog.scrollHeight - window.App.UI.chatLog.scrollTop - window.App.UI.chatLog.clientHeight;
         window.App.isAutoScrolling = diff < 10; 
     });
+
+    window.App.UI.architectBtn.addEventListener('click', () => {
+        window.App.UI.architectModal.classList.remove('hidden');
+    });
+    
+    window.App.UI.closeArchitectModal.addEventListener('click', () => {
+        window.App.UI.architectModal.classList.add('hidden');
+    });
+    
+    window.App.UI.architectBuildBtn.addEventListener('click', () => {
+        window.App.buildFromArchitect();
+    });
     
     window.App.UI.menuBtn.addEventListener('click', () => {
         if(window.innerWidth > 768) {
