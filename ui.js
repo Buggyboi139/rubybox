@@ -87,6 +87,18 @@ window.App.renderActiveCharacter = function() {
     }
 };
 
+window.App.UI.architectBtn.addEventListener('click', () => {
+        window.App.UI.architectModal.classList.remove('hidden');
+    });
+
+    window.App.UI.closeArchitectModal.addEventListener('click', () => {
+        window.App.UI.architectModal.classList.add('hidden');
+    });
+
+    window.App.UI.architectBuildBtn.addEventListener('click', () => {
+        window.App.buildFromArchitect();
+    });
+
 window.App.handleVoiceStateChange = function(status) {
     const statusText = document.getElementById('voice-status-text');
     if (status === 'initializing') {
