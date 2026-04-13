@@ -1,7 +1,6 @@
 window.App.startNewChat = async function() {
     window.App.state.history = [];
     window.App.UI.chatLog.innerHTML = "";
-    window.App.UI.narrativePrompt.value = "";
     window.App.UI.persistMem.value = "";
     const { data } = await window.supabaseClient.from('conversations').insert([{ user_id: window.App.user.id, title: 'New Chat' }]).select().single();
     if (data) {
