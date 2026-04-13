@@ -1,12 +1,17 @@
 window.App.startNewChat = async function() {
+    window.App.currentConversationId = null;
     window.App.state.history = [];
     window.App.UI.chatLog.innerHTML = "";
     window.App.UI.persistMem.value = "";
-    const { data } = await window.supabaseClient.from('conversations').insert([{ user_id: window.App.user.id, title: 'New Chat' }]).select().single();
-    if (data) {
-        window.App.currentConversationId = data.id;
-        window.App.loadConversations();
+    
+    document.querySelectorAll('.chat-sidebar-item').forEach(el => {
+        el.classList.remove('active');
+    });
+
+    if (window.App.state.activeCharacter) {
+        window.App.addMessage('assistant', `*${window.App.state.activeCharacter.name} is ready to chat.*`);
     }
+    
     window.App.UI.sidebar.classList.remove('show');
     window.App.UI.overlay.classList.remove('show');
 };
@@ -63,9 +68,7 @@ window.App.saveUserSettings = async function() {
         default_model: window.App.UI.model.value,
         voice_mode: window.App.UI.voiceMode.value
     };
-    
     const { error } = await window.supabaseClient.from('user_settings').upsert(settings, { onConflict: 'user_id' });
-    
     if (error) {
         console.error(error);
         window.App.showToast(error.message, "error");
