@@ -159,6 +159,9 @@ const VoiceManager = (() => {
                     }
                 });
                 vadInstance.start();
+                
+                const dummySource = globalAudioContext.createMediaStreamSource(stream);
+                dummySource.connect(micAnalyser);
             }
         } catch (err) {
             changeState('error');
@@ -330,20 +333,49 @@ const VoiceManager = (() => {
         const width = canvas.width = canvas.offsetWidth;
         const height = canvas.height = canvas.offsetHeight;
         canvasCtx.clearRect(0, 0, width, height);
+
         if (currentState === 'listening' && micAnalyser) {
             const arr = new Uint8Array(micAnalyser.frequencyBinCount);
             micAnalyser.getByteFrequencyData(arr);
+            canvasCtx.lineWidth = 3;
+            canvasCtx.strokeStyle = '#06b6d4';
             canvasCtx.beginPath();
-            let x = 0;
             const sliceWidth = width / arr.length;
+            let x = 0;
             for (let i = 0; i < arr.length; i++) {
                 const v = arr[i] / 128.0;
-                const y = (height - 20) - (v * 40);
+                const y = (height - 20) - (v * 40); 
                 if (i === 0) canvasCtx.moveTo(x, y);
                 else canvasCtx.lineTo(x, y);
                 x += sliceWidth;
             }
-            canvasCtx.strokeStyle = '#06b6d4';
+            canvasCtx.stroke();
+        } else if (currentState === 'thinking') {
+            const t = Date.now() / 300;
+            let radius = 40 + Math.sin(t) * 15;
+            canvasCtx.beginPath();
+            canvasCtx.arc(width/2, height/2, radius, 0, 2*Math.PI);
+            canvasCtx.fillStyle = 'rgba(168, 85, 247, 0.4)';
+            canvasCtx.fill();
+            canvasCtx.beginPath();
+            canvasCtx.arc(width/2, height/2, radius * 0.6, 0, 2*Math.PI);
+            canvasCtx.fillStyle = 'rgba(168, 85, 247, 0.8)';
+            canvasCtx.fill();
+        } else if (currentState === 'speaking' && globalAnalyser) {
+            const arr = new Uint8Array(globalAnalyser.frequencyBinCount);
+            globalAnalyser.getByteFrequencyData(arr);
+            canvasCtx.lineWidth = 4;
+            canvasCtx.strokeStyle = '#10b981';
+            canvasCtx.beginPath();
+            const sliceWidth = width / arr.length;
+            let x = 0;
+            for (let i = 0; i < arr.length; i++) {
+                const v = arr[i] / 128.0;
+                const y = height/2 + (v * 60 - 60);
+                if (i === 0) canvasCtx.moveTo(x, y);
+                else canvasCtx.lineTo(x, y);
+                x += sliceWidth;
+            }
             canvasCtx.stroke();
         }
     }
