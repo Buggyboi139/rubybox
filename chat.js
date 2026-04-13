@@ -303,9 +303,9 @@ CRITICAL SYSTEM REQUIREMENT: You MUST output your entire response as a single, v
             user_id: window.App.user.id,
             name: profile.name,
             system_prompt: profile.system_prompt,
-            avatar_url: finalAvatarUrl
+            avatar: finalAvatarUrl
         };
-
+        
         const { error: dbError } = await window.supabaseClient.from('characters').insert([charPayload]);
         if (dbError) throw dbError;
         
