@@ -31,6 +31,7 @@ window.App.initUI = function() {
         sendBtn: document.getElementById('send-btn'),
         stopBtn: document.getElementById('stop-btn'),
         micBtn: document.getElementById('mic-btn'),
+        cancelEditCharBtn: document.getElementById('cancelEditCharBtn'),
         attachImgBtn: document.getElementById('attach-img-btn'),
         imageUpload: document.getElementById('image-upload'),
         imagePreviewContainer: document.getElementById('image-preview-container'),
