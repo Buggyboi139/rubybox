@@ -38,8 +38,6 @@ window.App.renderCharacters = function() {
         div.addEventListener('click', (e) => {
             if (e.target.classList.contains('char-del') || e.target.classList.contains('char-edit')) return;
             window.App.state.activeCharacter = c;
-            window.App.UI.sysPrompt.value = c.system_prompt;
-            window.App.saveUserSettings();
             window.App.renderActiveCharacter();
             window.App.UI.charModal.classList.add('hidden');
         });
