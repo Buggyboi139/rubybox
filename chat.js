@@ -63,6 +63,10 @@ window.App.execute = async function(fromVoice = false) {
         window.App.showToast("Please sign in first.", "error");
         return;
     }
+    if (!window.App.state.activeCharacter) {
+        window.App.showToast("Please select a persona first.", "error");
+        return;
+    }
 
     const input = window.App.UI.prompt.value.trim();
     if (!input && window.App.state.history.length === 0) return;
@@ -89,13 +93,16 @@ window.App.execute = async function(fromVoice = false) {
         if (!window.App.currentConversationId) {
             const title = input ? input.substring(0, 30).trim() + "..." : "New Chat";
             const currentMode = window.App.currentMode || 'chat';
+            const charId = (window.App.state.activeCharacter && !window.App.state.activeCharacter.id.startsWith('base-')) ? window.App.state.activeCharacter.id : null;
+            
             const { data: newChat, error: chatError } = await window.supabaseClient
                 .from('conversations')
                 .insert([{ 
                     user_id: window.App.user.id, 
                     title: title, 
                     summary_memory: window.App.UI.persistMem.value.trim(),
-                    mode: currentMode
+                    mode: currentMode,
+                    character_id: charId
                 }])
                 .select()
                 .single();
