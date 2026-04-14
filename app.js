@@ -38,8 +38,14 @@ window.App.setupEventListeners = function() {
 
     document.querySelectorAll('.mode-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
+            document.querySelectorAll('.mode-btn').forEach(b => {
+                b.classList.remove('primary-btn');
+                b.classList.add('secondary-btn');
+            });
+            
+            e.target.classList.remove('secondary-btn');
+            e.target.classList.add('primary-btn');
+            
             window.App.currentMode = e.target.getAttribute('data-mode');
             window.App.startNewChat();
             window.App.state.activeCharacter = null;
