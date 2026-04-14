@@ -22,7 +22,7 @@ window.App.startNewChat = async function() {
 };
 
 window.App.loadConversationHistory = async function(convId, renderList = true) {
-    if (window.App.currentConversationId !== convId || window.App.state.history.length === 0) {
+    if (window.App.currentConversationId !== convId) {
         window.App.renderSkeleton();
     }
     window.App.currentConversationId = convId;
@@ -58,13 +58,10 @@ window.App.loadConversationHistory = async function(convId, renderList = true) {
 window.App.loadUserSettings = async function() {
     if (!window.App.user) return;
     const { data } = await window.supabaseClient.from('user_settings').select('*').eq('user_id', window.App.user.id).single();
-    
-    const localKeys = JSON.parse(localStorage.getItem('rubybox_keys') || '{}');
-    window.App.UI.apiKey.value = localKeys.openRouter || "";
-    window.App.UI.googleTtsKey.value = localKeys.googleTts || "";
-
     if (data) {
         window.App.settingsData = data;
+        if (data.encrypted_api_key) window.App.UI.apiKey.value = data.encrypted_api_key;
+        if (data.google_tts_key) window.App.UI.googleTtsKey.value = data.google_tts_key;
         if (data.google_tts_voice) window.App.UI.googleVoiceSelect.value = data.google_tts_voice;
         if (data.temperature) { window.App.UI.tempSlider.value = data.temperature; window.App.UI.tempVal.textContent = data.temperature; }
         if (data.context_limit) { window.App.UI.ctxSlider.value = data.context_limit; window.App.UI.ctxVal.textContent = data.context_limit; }
@@ -92,15 +89,11 @@ window.App.applyModeSettings = function() {
 
 window.App.saveUserSettings = async function() {
     if (!window.App.user) return;
-    
-    localStorage.setItem('rubybox_keys', JSON.stringify({
-        openRouter: window.App.UI.apiKey.value,
-        googleTts: window.App.UI.googleTtsKey.value
-    }));
-
     const currentMode = window.App.currentMode || 'chat';
     const settings = {
         user_id: window.App.user.id,
+        encrypted_api_key: window.App.UI.apiKey.value,
+        google_tts_key: window.App.UI.googleTtsKey.value,
         google_tts_voice: window.App.UI.googleVoiceSelect.value,
         temperature: parseFloat(window.App.UI.tempSlider.value),
         context_limit: parseInt(window.App.UI.ctxSlider.value),
