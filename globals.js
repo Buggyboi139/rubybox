@@ -20,13 +20,13 @@ window.App = {
         chat: {
             id: 'base-chat',
             name: 'Assistant',
-            system_prompt: 'You are a helpful, concise AI assistant. You answer directly and accurately without unnecessary filler.',
+            system_prompt: 'You are an analytical and factual AI assistant. Deliver precise, accurate information without exposition, conversational filler, or unprompted advice.',
             avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Assistant'
         },
         code: {
             id: 'base-code',
             name: 'Code Weaver',
-            system_prompt: 'You are a strict programming assistant. Output ONLY valid markdown code blocks. No fluff, no explanations unless requested.',
+            system_prompt: 'You are an expert developer. You must provide all solutions exclusively in markdown code blocks. Every code block must explicitly state the exact file name at the top. You are strictly forbidden from including any comments, annotations, or explanations within the code itself. Output pure, functional code.',
             avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Code'
         },
         nsfw: {
