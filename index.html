@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>RubyBox</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" integrity="sha512-VjGg03//vJ0H1w/R2p5n2bXQkE3rA6GgEwE2x/f32N2PnyQh5Bq2fB41+O2n7Kj7pM7S9Gk8qB6c/x4j4aP4Q==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
     <link rel="shortcut icon" href="/icons/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
@@ -14,13 +14,8 @@
     
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for(let registration of registrations) {
-            registration.unregister();
-          }
-        });
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js?v=' + new Date().getTime());
+          navigator.serviceWorker.register('/sw.js');
         });
       }
     </script>
