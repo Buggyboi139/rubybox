@@ -11,8 +11,8 @@ const ASSETS = [
     '/chat.js',
     '/app.js',
     '/site.webmanifest',
-    '/favicon.svg',
-    '/apple-touch-icon.png'
+    '/icons/favicon.svg',
+    '/icons/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (e) => {
