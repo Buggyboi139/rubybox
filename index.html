@@ -51,9 +51,9 @@
         <div class="logo-container"><span class="logo-text">RubyBox</span></div>
 
         <div id="mode-switcher" style="display: flex; gap: 10px; margin-bottom: 15px; padding: 0 15px;">
-            <button class="mode-btn primary-btn" data-mode="chat" style="margin: 0; flex: 1; padding: 8px 0;">Chat</button>
-            <button class="mode-btn secondary-btn" data-mode="code" style="margin: 0; flex: 1; padding: 8px 0;">Code</button>
-            <button class="mode-btn secondary-btn" data-mode="nsfw" style="margin: 0; flex: 1; padding: 8px 0;">NSFW</button>
+            <button class="mode-btn active" data-mode="chat">Chat</button>
+            <button class="mode-btn" data-mode="code">Code</button>
+            <button class="mode-btn" data-mode="nsfw">NSFW</button>
         </div>
         
         <div id="auth-panel" style="margin-bottom: 15px; flex-shrink: 0;">
@@ -117,22 +117,28 @@
                     <input type="password" id="api-key" placeholder="OpenRouter Key" class="glass-input" style="margin-bottom: 15px;">
                     <select id="model-select" class="glass-input" style="margin-bottom: 15px; font-size: 0.9rem !important; padding: 10px;">
                         <optgroup label="Anthropic">
-                            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-                            <option value="anthropic/claude-3-opus">Claude 3 Opus</option>
-                            <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
+                            <option value="anthropic/claude-opus-4.6">Claude Opus 4.6</option>
+                            <option value="anthropic/claude-sonnet-4.6">Claude Sonnet 4.6</option>
                         </optgroup>
                         <optgroup label="Google">
+                            <option value="google/gemini-3-flash-preview">Gemini 3 Flash</option>
                             <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
-                            <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
-                            <option value="google/gemini-pro-1.5">Gemini 1.5 Pro</option>
-                        </optgroup>
-                        <optgroup label="OpenAI">
-                            <option value="openai/gpt-4o">GPT-4o</option>
-                            <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
                         </optgroup>
                         <optgroup label="DeepSeek">
-                            <option value="deepseek/deepseek-chat" selected>DeepSeek V3</option>
-                            <option value="deepseek/deepseek-r1">DeepSeek R1</option>
+                            <option value="deepseek/deepseek-v3.2" selected>DeepSeek V3.2</option>
+                        </optgroup>
+                        <optgroup label="MiniMax">
+                            <option value="minimax/minimax-m2.7">MiniMax M2.7</option>
+                            <option value="minimax/minimax-m2.5">MiniMax M2.5</option>
+                        </optgroup>
+                        <optgroup label="Xiaomi">
+                            <option value="xiaomi/mimo-v2-pro">MiMo-V2-Pro</option>
+                        </optgroup>
+                        <optgroup label="NVIDIA">
+                            <option value="nvidia/nemotron-3-super">Nemotron 3 Super</option>
+                        </optgroup>
+                        <optgroup label="xAI">
+                            <option value="x-ai/grok-4.1-fast">Grok 4.1 Fast</option>
                         </optgroup>
                     </select>
                     <select id="voice-mode" class="glass-input" style="margin-bottom: 15px; font-size: 0.9rem !important; padding: 10px;">
