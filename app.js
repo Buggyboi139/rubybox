@@ -9,18 +9,6 @@ window.App.setupEventListeners = function() {
         const diff = window.App.UI.chatLog.scrollHeight - window.App.UI.chatLog.scrollTop - window.App.UI.chatLog.clientHeight;
         window.App.isAutoScrolling = diff < 10; 
     });
-
-    window.App.UI.architectBtn.addEventListener('click', () => {
-        window.App.UI.architectModal.classList.remove('hidden');
-    });
-    
-    window.App.UI.closeArchitectModal.addEventListener('click', () => {
-        window.App.UI.architectModal.classList.add('hidden');
-    });
-    
-    window.App.UI.architectBuildBtn.addEventListener('click', () => {
-        window.App.buildFromArchitect();
-    });
     
     window.App.UI.menuBtn.addEventListener('click', () => {
         if(window.innerWidth > 768) {
@@ -47,6 +35,20 @@ window.App.setupEventListeners = function() {
         window.App.UI.mobileSidebarClose.addEventListener('click', closeSidebar);
         window.App.UI.mobileSidebarClose.addEventListener('touchstart', closeSidebar, { passive: false });
     }
+
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            window.App.currentMode = e.target.getAttribute('data-mode');
+            window.App.startNewChat();
+            window.App.state.activeCharacter = null;
+            window.App.renderActiveCharacter();
+            window.App.loadCharacters();
+            window.App.loadConversations();
+            window.App.applyModeSettings();
+        });
+    });
 
     window.App.UI.profileBtn.addEventListener('click', () => { window.App.UI.profileModal.classList.remove('hidden'); window.App.UI.sidebar.classList.remove('show'); window.App.UI.overlay.classList.remove('show'); });
     window.App.UI.closeProfileModal.addEventListener('click', () => window.App.UI.profileModal.classList.add('hidden'));
@@ -101,9 +103,10 @@ window.App.setupEventListeners = function() {
                 }
                 window.App.showToast("Persona updated");
             } else {
+                const currentMode = window.App.currentMode || 'chat';
                 const { error } = await window.supabaseClient
                     .from('characters')
-                    .insert([{ user_id: window.App.user.id, name, avatar, system_prompt: prompt }]);
+                    .insert([{ user_id: window.App.user.id, name, avatar, system_prompt: prompt, mode: currentMode }]);
                 
                 if (error) return window.App.showToast(error.message, "error");
                 window.App.showToast("Persona saved");
@@ -200,6 +203,18 @@ window.App.setupEventListeners = function() {
     if (mobileExportBtn) {
         mobileExportBtn.addEventListener('click', window.App.exportChat);
     }
+
+    window.App.UI.architectBtn.addEventListener('click', () => {
+        window.App.UI.architectModal.classList.remove('hidden');
+    });
+
+    window.App.UI.closeArchitectModal.addEventListener('click', () => {
+        window.App.UI.architectModal.classList.add('hidden');
+    });
+
+    window.App.UI.architectBuildBtn.addEventListener('click', () => {
+        window.App.buildFromArchitect();
+    });
     
     window.App.UI.sendBtn.addEventListener('click', () => window.App.execute(false));
     window.App.UI.stopBtn.addEventListener('click', () => { if(window.App.controller) window.App.controller.abort(); VoiceManager.stopAll(); });
