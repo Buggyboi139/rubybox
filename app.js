@@ -37,22 +37,19 @@ window.App.setupEventListeners = function() {
     }
 
     document.querySelectorAll('.mode-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             document.querySelectorAll('.mode-btn').forEach(b => {
                 b.classList.remove('primary-btn');
                 b.classList.add('secondary-btn');
             });
-            
             e.target.classList.remove('secondary-btn');
             e.target.classList.add('primary-btn');
             
             window.App.currentMode = e.target.getAttribute('data-mode');
-            window.App.startNewChat();
-            window.App.state.activeCharacter = null;
-            window.App.renderActiveCharacter();
-            window.App.loadCharacters();
-            window.App.loadConversations();
             window.App.applyModeSettings();
+            await window.App.loadCharacters();
+            await window.App.loadConversations();
+            await window.App.startNewChat();
         });
     });
 
