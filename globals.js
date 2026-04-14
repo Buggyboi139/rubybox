@@ -9,6 +9,7 @@ window.App = {
     currentConversationId: null,
     isAutoScrolling: true,
     controller: null,
+    isExecuting: false,
     attachedImageBase64: null,
     newCharAvatarBase64: null,
     editingCharId: null,
