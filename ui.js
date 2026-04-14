@@ -87,21 +87,17 @@ window.App.renderCharacters = function() {
 };
 
 window.App.renderActiveCharacter = function() {
-    if (window.App.state.activeCharacter) {
-        window.App.UI.activeCharDisplay.classList.remove('hidden');
-        window.App.UI.activeCharImg.src = window.App.state.activeCharacter.avatar || window.App.DEFAULT_AI_AVATAR;
-        const isBase = window.App.state.activeCharacter.id.startsWith('base-');
-        window.App.UI.activeCharName.innerHTML = `${window.App.state.activeCharacter.name} ${isBase ? '<span style="font-size: 0.6rem; background: var(--primary); padding: 2px 4px; border-radius: 4px; margin-left: 5px;">BASE</span>' : ''}`;
-        
-        window.App.UI.prompt.disabled = false;
-        window.App.UI.prompt.placeholder = "Message...";
-        window.App.UI.sendBtn.disabled = false;
-    } else {
-        window.App.UI.activeCharDisplay.classList.add('hidden');
-        window.App.UI.prompt.disabled = true;
-        window.App.UI.prompt.placeholder = "Select or create a persona to chat...";
-        window.App.UI.sendBtn.disabled = true;
+    if (!window.App.state.activeCharacter) {
+        window.App.state.activeCharacter = window.App.BASE_PERSONAS[window.App.currentMode || 'chat'];
     }
+    window.App.UI.activeCharDisplay.classList.remove('hidden');
+    window.App.UI.activeCharImg.src = window.App.state.activeCharacter.avatar || window.App.DEFAULT_AI_AVATAR;
+    const isBase = window.App.state.activeCharacter.id && window.App.state.activeCharacter.id.startsWith('base-');
+    window.App.UI.activeCharName.innerHTML = `${window.App.state.activeCharacter.name} ${isBase ? '<span style="font-size: 0.6rem; background: var(--primary); padding: 2px 4px; border-radius: 4px; margin-left: 5px;">BASE</span>' : ''}`;
+    
+    window.App.UI.prompt.disabled = false;
+    window.App.UI.prompt.placeholder = "Message...";
+    window.App.UI.sendBtn.disabled = false;
 };
 
 window.App.handleVoiceStateChange = function(status) {
