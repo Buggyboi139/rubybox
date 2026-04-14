@@ -156,21 +156,47 @@ window.App.execute = async function(fromVoice = false) {
     const systemContent = `${activeCharPrompt}${window.App.UI.sysPrompt.value}\n\n[NARRATIVE CONTEXT]\n${window.App.UI.narrativePrompt.value}\n\n[PERSISTENT MEMORY]\n${window.App.UI.persistMem.value}`;
     const messages = [{ role: "system", content: systemContent }, ...recent];
     
+    let targetModel = window.App.UI.model.value;
+    let routerBadge = "";
+
+    if (window.App.currentMode === 'code' && messages.length > 1) {
+        const routeInput = typeof messages[messages.length - 1].content === 'string' ? messages[messages.length - 1].content : JSON.stringify(messages[messages.length - 1].content);
+        try {
+            const routeRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: "google/gemini-2.5-flash",
+                    messages: [{ role: "system", content: "You are a code routing node. Evaluate the user prompt and select the best model from this exact list: 'anthropic/claude-3.5-sonnet', 'deepseek/deepseek-chat', 'openai/gpt-4o'. Output ONLY the exact model string." }, { role: "user", content: routeInput }],
+                    temperature: 0
+                })
+            });
+            if (routeRes.ok) {
+                const rData = await routeRes.json();
+                targetModel = rData.choices[0].message.content.replace(/["']/g, "").trim();
+                if (!['anthropic/claude-3.5-sonnet', 'deepseek/deepseek-chat', 'openai/gpt-4o'].includes(targetModel)) {
+                    targetModel = 'anthropic/claude-3.5-sonnet';
+                }
+                routerBadge = `**[Routed via Gemini to: ${targetModel}]**\n\n`;
+            }
+        } catch(e) {}
+    }
+
     try {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
             signal: window.App.controller.signal,
-            body: JSON.stringify({ model: window.App.UI.model.value, temperature: parseFloat(window.App.UI.tempSlider.value), max_tokens: maxTokens, messages: messages, stream: true })
+            body: JSON.stringify({ model: targetModel, temperature: parseFloat(window.App.UI.tempSlider.value), max_tokens: maxTokens, messages: messages, stream: true })
         });
         
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let fullText = "";
+        let fullText = routerBadge;
         let buffer = "";
-        const box = window.App.addMessage('assistant', "", true);
+        const box = window.App.addMessage('assistant', fullText, true);
         let lastRenderTime = 0;
         
         while (true) {
