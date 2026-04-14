@@ -22,7 +22,7 @@ window.App.generateChatTitle = async function(firstPrompt, convId) {
             method: "POST",
             headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-                model: "google/gemini-2.5-flash",
+                model: "google/gemini-3-flash-preview",
                 messages: [{ role: "user", content: `Summarize this into a 3-5 word title. Only output the title: ${firstPrompt}` }],
                 stream: false
             })
@@ -166,18 +166,18 @@ window.App.execute = async function(fromVoice = false) {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    model: "google/gemini-2.5-flash",
-                    messages: [{ role: "system", content: "You are a code routing node. Evaluate the user prompt and select the best model from this exact list: 'anthropic/claude-3.5-sonnet', 'deepseek/deepseek-chat', 'openai/gpt-4o'. Output ONLY the exact model string." }, { role: "user", content: routeInput }],
+                    model: "google/gemini-3-flash-preview",
+                    messages: [{ role: "system", content: "You are a code routing node. Evaluate the user prompt and select the best model from this exact list: 'anthropic/claude-opus-4.6', 'anthropic/claude-sonnet-4.6', 'deepseek/deepseek-v3.2'. Output ONLY the exact model string." }, { role: "user", content: routeInput }],
                     temperature: 0
                 })
             });
             if (routeRes.ok) {
                 const rData = await routeRes.json();
                 targetModel = rData.choices[0].message.content.replace(/["']/g, "").trim();
-                if (!['anthropic/claude-3.5-sonnet', 'deepseek/deepseek-chat', 'openai/gpt-4o'].includes(targetModel)) {
-                    targetModel = 'anthropic/claude-3.5-sonnet';
+                if (!['anthropic/claude-opus-4.6', 'anthropic/claude-sonnet-4.6', 'deepseek/deepseek-v3.2'].includes(targetModel)) {
+                    targetModel = 'anthropic/claude-sonnet-4.6';
                 }
-                routerBadge = `**[Routed via Gemini to: ${targetModel}]**\n\n`;
+                routerBadge = `**[Routed via Gemini 3 to: ${targetModel}]**\n\n`;
             }
         } catch(e) {}
     }
@@ -292,9 +292,9 @@ Whenever the user provides a prompt, you must generate the framework using the f
 
 CRITICAL SYSTEM REQUIREMENT: You MUST output your entire response as a single, valid JSON object. Do not wrap it in markdown code blocks like \`\`\`json. The JSON must exactly match this schema:
 {
-  "name": "A brutal, concise title for this scenario or character",
-  "avatar_prompt": "A comma-separated list of highly specific visual tags based on the Entity/Environmental design to be fed into a Stable Diffusion image generator (e.g., 1girl, glowing neon, hyper-detailed, specific clothing/anatomy).",
-  "system_prompt": "The complete, detailed text of all 5 categories requested above, cleanly formatted in markdown."
+"name": "A brutal, concise title for this scenario or character",
+"avatar_prompt": "A comma-separated list of highly specific visual tags based on the Entity/Environmental design to be fed into a Stable Diffusion image generator (e.g., 1girl, glowing neon, hyper-detailed, specific clothing/anatomy).",
+"system_prompt": "The complete, detailed text of all 5 categories requested above, cleanly formatted in markdown."
 }`;
 
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -304,7 +304,7 @@ CRITICAL SYSTEM REQUIREMENT: You MUST output your entire response as a single, v
                 "Content-Type": "application/json" 
             },
             body: JSON.stringify({
-                model: "deepseek/deepseek-chat",
+                model: "deepseek/deepseek-v3.2",
                 messages: [
                     { role: "system", content: sysPrompt },
                     { role: "user", content: input }
