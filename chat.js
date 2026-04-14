@@ -64,8 +64,8 @@ window.App.execute = async function(fromVoice = false) {
         return;
     }
     if (!window.App.state.activeCharacter) {
-        window.App.showToast("Please select a persona first.", "error");
-        return;
+        window.App.state.activeCharacter = window.App.BASE_PERSONAS[window.App.currentMode || 'chat'];
+        window.App.renderActiveCharacter();
     }
 
     const input = window.App.UI.prompt.value.trim();
