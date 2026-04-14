@@ -88,12 +88,14 @@ window.App.execute = async function(fromVoice = false) {
         
         if (!window.App.currentConversationId) {
             const title = input ? input.substring(0, 30).trim() + "..." : "New Chat";
+            const currentMode = window.App.currentMode || 'chat';
             const { data: newChat, error: chatError } = await window.supabaseClient
                 .from('conversations')
                 .insert([{ 
                     user_id: window.App.user.id, 
                     title: title, 
-                    summary_memory: window.App.UI.persistMem.value.trim() 
+                    summary_memory: window.App.UI.persistMem.value.trim(),
+                    mode: currentMode
                 }])
                 .select()
                 .single();
@@ -299,13 +301,15 @@ CRITICAL SYSTEM REQUIREMENT: You MUST output your entire response as a single, v
             finalAvatarUrl = urlData.publicUrl;
         }
 
+        const currentMode = window.App.currentMode || 'chat';
         const charPayload = {
             user_id: window.App.user.id,
             name: profile.name,
             system_prompt: profile.system_prompt,
-            avatar: finalAvatarUrl
+            avatar: finalAvatarUrl,
+            mode: currentMode
         };
-        
+
         const { error: dbError } = await window.supabaseClient.from('characters').insert([charPayload]);
         if (dbError) throw dbError;
         
