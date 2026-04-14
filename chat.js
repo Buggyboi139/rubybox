@@ -18,7 +18,7 @@ window.App.extractImageFromContent = function(content) {
 window.App.generateChatTitle = async function(firstPrompt, convId) {
     if (!window.App.UI.apiKey.value) return;
     try {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const response = await fetch("[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)", {
             method: "POST",
             headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -33,7 +33,9 @@ window.App.generateChatTitle = async function(firstPrompt, convId) {
             await window.supabaseClient.from('conversations').update({ title }).eq('id', convId);
             window.App.loadConversations();
         }
-    } catch(e) {}
+    } catch(e) {
+        console.error("Failed to generate title", e);
+    }
 };
 
 window.App.exportChat = function() {
@@ -58,68 +60,40 @@ window.App.exportChat = function() {
     window.App.showToast("Chat exported to Markdown.");
 };
 
-window.App.prepareChatPayload = async function(input) {
-    let contentPayload = input;
-    if (window.App.attachedImageBase64) {
-        contentPayload = [];
-        if (input) contentPayload.push({ type: "text", text: input });
-        const finalImgUrl = await window.App.uploadImageToStorage(window.App.attachedImageBase64);
-        
-        if (!finalImgUrl) {
-            throw new Error("Image upload failed.");
-        }
-        contentPayload.push({ type: "image_url", image_url: { url: finalImgUrl } });
-    }
-    return contentPayload;
-};
-
-window.App.routeAndDetermineModel = async function(messages, defaultModel) {
-    if (window.App.currentMode !== 'code' || messages.length <= 1) return { targetModel: defaultModel, routerBadge: "" };
-    
-    const routeInput = typeof messages[messages.length - 1].content === 'string' ? messages[messages.length - 1].content : JSON.stringify(messages[messages.length - 1].content);
-    try {
-        const routeRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-                model: "google/gemini-2.5-flash",
-                messages: [{ role: "system", content: "You are a code routing node. Evaluate the user prompt and select the best model from this exact list: 'anthropic/claude-opus-4.6', 'anthropic/claude-sonnet-4.6', 'deepseek/deepseek-v3.2'. Output ONLY the exact model string." }, { role: "user", content: routeInput }],
-                temperature: 0
-            })
-        });
-        if (routeRes.ok) {
-            const rData = await routeRes.json();
-            let targetModel = rData.choices[0].message.content.replace(/["']/g, "").trim();
-            const allowedModels = ['anthropic/claude-opus-4.6', 'anthropic/claude-sonnet-4.6', 'deepseek/deepseek-v3.2'];
-            if (!allowedModels.includes(targetModel)) {
-                targetModel = 'anthropic/claude-sonnet-4.6';
-            }
-            return { targetModel, routerBadge: `**[Routed via Gemini Flash to: ${targetModel}]**\n\n` };
-        }
-    } catch(e) {}
-    return { targetModel: defaultModel, routerBadge: "" };
-};
-
 window.App.execute = async function(fromVoice = false) {
     if (!window.App.user) {
         window.App.showToast("Please sign in first.", "error");
         return;
     }
     if (window.App.isExecuting) return;
-    
-    if (!window.App.state.activeCharacter) {
-        window.App.state.activeCharacter = window.App.BASE_PERSONAS[window.App.currentMode || 'chat'];
-        window.App.renderActiveCharacter();
-    }
-
-    const input = window.App.UI.prompt.value.trim();
-    if (!input && window.App.state.history.length === 0) return;
-    
     window.App.isExecuting = true;
 
     try {
+        if (!window.App.state.activeCharacter) {
+            window.App.state.activeCharacter = window.App.BASE_PERSONAS[window.App.currentMode || 'chat'];
+            window.App.renderActiveCharacter();
+        }
+
+        const input = window.App.UI.prompt.value.trim();
+        if (!input && window.App.state.history.length === 0) return;
+        
         if (input || window.App.attachedImageBase64) {
-            const contentPayload = await window.App.prepareChatPayload(input);
+            let contentPayload = input;
+            if (window.App.attachedImageBase64) {
+                contentPayload = [];
+                if (input) contentPayload.push({ type: "text", text: input });
+                const finalImgUrl = await window.App.uploadImageToStorage(window.App.attachedImageBase64);
+                
+                if (!finalImgUrl) {
+                    window.App.showToast("Image upload failed.", "error");
+                    window.App.UI.stopBtn.classList.add('hidden');
+                    window.App.UI.sendBtn.classList.remove('hidden');
+                    return;
+                }
+                
+                contentPayload.push({ type: "image_url", image_url: { url: finalImgUrl } });
+            }
+
             const dbContent = typeof contentPayload === 'string' ? contentPayload : JSON.stringify(contentPayload);
             
             if (!window.App.currentConversationId) {
@@ -139,39 +113,46 @@ window.App.execute = async function(fromVoice = false) {
                     .select()
                     .single();
                     
-                if (chatError) throw new Error("Failed to create chat");
+                if (chatError) {
+                    window.App.showToast("Failed to create chat", "error");
+                    window.App.UI.stopBtn.classList.add('hidden');
+                    window.App.UI.sendBtn.classList.remove('hidden');
+                    return;
+                }
                 window.App.currentConversationId = newChat.id;
             }
 
-            const msgId = crypto.randomUUID();
-            window.App.state.history.push({ role: 'user', content: contentPayload, id: msgId });
-            window.App.addMessage('user', contentPayload, false, msgId);
+            const { data, error } = await window.supabaseClient
+                .from('messages')
+                .insert([{ 
+                    conversation_id: window.App.currentConversationId, 
+                    user_id: window.App.user.id, 
+                    role: 'user', 
+                    content: dbContent 
+                }])
+                .select()
+                .single();
+                
+            if (error) throw error;
+            if(data) {
+                window.App.state.history.push({ role: 'user', content: contentPayload, id: data.id });
+                window.App.addMessage('user', contentPayload, false, data.id);
+            }
+            if(window.App.state.history.length === 1) {
+                window.App.generateChatTitle(input, window.App.currentConversationId);
+                window.App.loadConversations();
+            }
 
             window.App.UI.prompt.value = ""; 
             window.App.UI.prompt.style.height = '50px'; 
             window.App.UI.tokenCounter.innerText = "~0 tokens";
             window.App.UI.clearImgBtn.click();
-
-            window.supabaseClient.from('messages').insert([{ 
-                id: msgId,
-                conversation_id: window.App.currentConversationId, 
-                user_id: window.App.user.id, 
-                role: 'user', 
-                content: dbContent 
-            }]).then(({error}) => {
-                if (error) window.App.showToast("Failed to save message", "error");
-            });
-
-            if(window.App.state.history.length === 1) {
-                window.App.generateChatTitle(input, window.App.currentConversationId);
-            }
         }
         
         window.App.controller = new AbortController();
         if (!fromVoice) {
             window.App.UI.stopBtn.classList.remove('hidden');
             window.App.UI.sendBtn.classList.add('hidden');
-            window.App.UI.sendBtn.disabled = true;
         }
         
         const limit = parseInt(window.App.UI.ctxSlider.value);
@@ -181,11 +162,35 @@ window.App.execute = async function(fromVoice = false) {
         const systemContent = `${activeCharPrompt}${window.App.UI.sysPrompt.value}\n\n[NARRATIVE CONTEXT]\n${window.App.UI.narrativePrompt.value}\n\n[PERSISTENT MEMORY]\n${window.App.UI.persistMem.value}`;
         const messages = [{ role: "system", content: systemContent }, ...recent];
         
-        const routingResult = await window.App.routeAndDetermineModel(messages, window.App.UI.model.value);
-        let targetModel = routingResult.targetModel;
-        let fullText = routingResult.routerBadge;
+        let targetModel = window.App.UI.model.value;
+        let routerBadge = "";
 
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        if (window.App.currentMode === 'code' && messages.length > 1) {
+            const routeInput = typeof messages[messages.length - 1].content === 'string' ? messages[messages.length - 1].content : JSON.stringify(messages[messages.length - 1].content);
+            try {
+                const routeRes = await fetch("[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)", {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: "google/gemini-2.5-flash",
+                        messages: [{ role: "system", content: "You are a code routing node. Evaluate the user prompt and select the best model from this exact list: 'anthropic/claude-opus-4.6', 'anthropic/claude-sonnet-4.6', 'deepseek/deepseek-v3.2'. Output ONLY the exact model string." }, { role: "user", content: routeInput }],
+                        temperature: 0
+                    })
+                });
+                if (routeRes.ok) {
+                    const rData = await routeRes.json();
+                    targetModel = rData.choices[0].message.content.replace(/["']/g, "").trim();
+                    if (!['anthropic/claude-opus-4.6', 'anthropic/claude-sonnet-4.6', 'deepseek/deepseek-v3.2'].includes(targetModel)) {
+                        targetModel = 'anthropic/claude-sonnet-4.6';
+                    }
+                    routerBadge = `**[Routed via Gemini Flash to: ${targetModel}]**\n\n`;
+                }
+            } catch(e) {
+                console.error("Routing error", e);
+            }
+        }
+
+        const response = await fetch("[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)", {
             method: "POST",
             headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
             signal: window.App.controller.signal,
@@ -196,6 +201,7 @@ window.App.execute = async function(fromVoice = false) {
         
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        let fullText = routerBadge;
         let buffer = "";
         const box = window.App.addMessage('assistant', fullText, true);
         let lastRenderTime = 0;
@@ -247,19 +253,12 @@ window.App.execute = async function(fromVoice = false) {
         const streamContainer = document.getElementById('streaming-container');
         if (streamContainer) streamContainer.remove();
         
-        const aiMsgId = crypto.randomUUID();
-        window.App.state.history.push({ role: 'assistant', content: fullText, id: aiMsgId });
-        window.App.addMessage('assistant', fullText, false, aiMsgId);
-
-        window.supabaseClient.from('messages').insert([{ 
-            id: aiMsgId,
-            conversation_id: window.App.currentConversationId, 
-            user_id: window.App.user.id, 
-            role: 'assistant', 
-            content: fullText 
-        }]).then(({error}) => {
-            if (error) window.App.showToast("Failed to save AI message", "error");
-        });
+        const { data: aiData, error: aiError } = await window.supabaseClient.from('messages').insert([{ conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: 'assistant', content: fullText }]).select().single();
+        if (aiError) throw aiError;
+        if(aiData) {
+            window.App.state.history.push({ role: 'assistant', content: fullText, id: aiData.id });
+            window.App.addMessage('assistant', fullText, false, aiData.id);
+        }
 
     } catch (e) {
         if (e.name !== 'AbortError') {
@@ -269,7 +268,6 @@ window.App.execute = async function(fromVoice = false) {
     } finally {
         window.App.UI.stopBtn.classList.add('hidden');
         window.App.UI.sendBtn.classList.remove('hidden');
-        window.App.UI.sendBtn.disabled = false;
         window.App.controller = null;
         window.App.isExecuting = false;
     }
@@ -307,7 +305,7 @@ CRITICAL SYSTEM REQUIREMENT: You MUST output your entire response as a single, v
 "system_prompt": "The complete, detailed text of all 5 categories requested above, cleanly formatted in markdown."
 }`;
 
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const response = await fetch("[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)", {
             method: "POST",
             headers: { 
                 "Authorization": `Bearer ${window.App.UI.apiKey.value}`, 
@@ -327,23 +325,12 @@ CRITICAL SYSTEM REQUIREMENT: You MUST output your entire response as a single, v
         
         const data = await response.json();
         const rawText = data.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim();
-        
-        let profile;
-        try {
-            profile = JSON.parse(rawText);
-        } catch (err) {
-            throw new Error("Invalid JSON returned by the Architect");
-        }
+        const profile = JSON.parse(rawText);
 
-        if (!profile.name || !profile.system_prompt || !profile.avatar_prompt) {
-            throw new Error("Architect output missing required fields");
-        }
+        const safeSystemPrompt = profile.system_prompt.replace(/<[^>]*>?/gm, '').replace(/(\{\{|<\||\|>|\}\})/g, '').trim();
+        const safeName = profile.name.replace(/<[^>]*>?/gm, '').replace(/(\{\{|<\||\|>|\}\})/g, '').trim();
 
-        const cleanName = DOMPurify.sanitize(profile.name.substring(0, 100));
-        const cleanSystemPrompt = DOMPurify.sanitize(profile.system_prompt.substring(0, 50000));
-        const cleanAvatarPrompt = profile.avatar_prompt.replace(/[^a-zA-Z0-9,\s]/g, '').substring(0, 500);
-
-        const encodedPrompt = encodeURIComponent(cleanAvatarPrompt);
+        const encodedPrompt = encodeURIComponent(profile.avatar_prompt);
         const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=512&height=512&nologo=true`;
         
         const imgRes = await fetch(imageUrl);
@@ -361,8 +348,8 @@ CRITICAL SYSTEM REQUIREMENT: You MUST output your entire response as a single, v
         const currentMode = window.App.currentMode || 'chat';
         const charPayload = {
             user_id: window.App.user.id,
-            name: cleanName,
-            system_prompt: cleanSystemPrompt,
+            name: safeName,
+            system_prompt: safeSystemPrompt,
             avatar: finalAvatarUrl,
             mode: currentMode
         };
@@ -372,11 +359,12 @@ CRITICAL SYSTEM REQUIREMENT: You MUST output your entire response as a single, v
         
         window.App.UI.architectPrompt.value = "";
         window.App.UI.architectModal.classList.add('hidden');
-        window.App.showToast(`Constructed: ${cleanName}`);
+        window.App.showToast(`Constructed: ${safeName}`);
         window.App.loadCharacters();
 
     } catch (e) {
         window.App.showToast(`Build failed: ${e.message}`, "error");
+        console.error(e);
     } finally {
         window.App.UI.architectBuildBtn.classList.remove('hidden');
         window.App.UI.architectLoading.classList.add('hidden');
