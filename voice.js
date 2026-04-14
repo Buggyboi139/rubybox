@@ -14,6 +14,7 @@ const VoiceManager = (() => {
     let isStreamComplete = false;
     let pendingStart = false;
     let silenceTimer = null;
+    let activeMicStream = null;
     
     let onTranscription = null;
     let onStateChange = null;
@@ -146,13 +147,16 @@ const VoiceManager = (() => {
         if (globalAudioContext.state === 'suspended') await globalAudioContext.resume();
 
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            if (activeMicStream) {
+                activeMicStream.getTracks().forEach(t => t.stop());
+            }
+            activeMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             changeState('listening');
             playDing();
 
             if (window.vad && window.vad.MicVAD) {
                 vadInstance = await window.vad.MicVAD.new({
-                    stream: stream,
+                    stream: activeMicStream,
                     onSpeechEnd: (audio) => {
                         vadInstance.pause();
                         sttWorker.postMessage({ type: 'transcribe', audio });
@@ -160,7 +164,7 @@ const VoiceManager = (() => {
                 });
                 vadInstance.start();
                 
-                const dummySource = globalAudioContext.createMediaStreamSource(stream);
+                const dummySource = globalAudioContext.createMediaStreamSource(activeMicStream);
                 dummySource.connect(micAnalyser);
             }
         } catch (err) {
@@ -321,6 +325,10 @@ const VoiceManager = (() => {
         activeSources.forEach(s => { try { s.stop(); } catch(e){} s.disconnect(); });
         activeSources = [];
         if (vadInstance) { vadInstance.destroy(); vadInstance = null; }
+        if (activeMicStream) {
+            activeMicStream.getTracks().forEach(t => t.stop());
+            activeMicStream = null;
+        }
         ttsQueue = [];
         sentenceBuffer = "";
         isGenerating = false;
