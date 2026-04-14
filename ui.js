@@ -199,7 +199,8 @@ window.App.addMessage = function(role, content, streaming = false, msgId = null)
                     const domIndex = domNodes.indexOf(container);
                     const historyToKeep = window.App.state.history.slice(0, domIndex);
 
-                    const { data: convData } = await window.supabaseClient.from('conversations').insert([{ user_id: window.App.user.id, title: 'Branched Chat' }]).select().single();
+                    const currentMode = window.App.currentMode || 'chat';
+                    const { data: convData } = await window.supabaseClient.from('conversations').insert([{ user_id: window.App.user.id, title: 'Branched Chat', mode: currentMode }]).select().single();
                     if (!convData) return;
                     window.App.currentConversationId = convData.id;
                     window.App.state.history = [];
