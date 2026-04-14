@@ -8,6 +8,11 @@ window.App.startNewChat = async function() {
         el.classList.remove('active');
     });
 
+    const currentMode = window.App.currentMode || 'chat';
+    const favChar = window.App.state.characters.find(c => c.is_favorite && c.mode === currentMode);
+    window.App.state.activeCharacter = favChar || window.App.BASE_PERSONAS[currentMode];
+    window.App.renderActiveCharacter();
+
     if (window.App.state.activeCharacter) {
         window.App.addMessage('assistant', `*${window.App.state.activeCharacter.name} is ready.*`);
     }
@@ -22,7 +27,17 @@ window.App.loadConversationHistory = async function(convId, renderList = true) {
     }
     window.App.currentConversationId = convId;
     const { data: convData } = await window.supabaseClient.from('conversations').select('*').eq('id', convId).single();
-    if (convData) window.App.UI.persistMem.value = convData.summary_memory || "";
+    
+    if (convData) {
+        window.App.UI.persistMem.value = convData.summary_memory || "";
+        if (convData.character_id) {
+            const char = window.App.state.characters.find(c => c.id === convData.character_id);
+            window.App.state.activeCharacter = char || window.App.BASE_PERSONAS[convData.mode || window.App.currentMode];
+        } else {
+            window.App.state.activeCharacter = window.App.BASE_PERSONAS[convData.mode || window.App.currentMode];
+        }
+        window.App.renderActiveCharacter();
+    }
 
     const { data } = await window.supabaseClient.from('messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true });
     window.App.state.history = [];
@@ -115,7 +130,12 @@ window.App.saveUserSettings = async function() {
 window.App.loadCharacters = async function() {
     if (!window.App.user) return;
     const currentMode = window.App.currentMode || 'chat';
-    const { data } = await window.supabaseClient.from('characters').select('*').eq('user_id', window.App.user.id).eq('mode', currentMode);
+    const { data } = await window.supabaseClient.from('characters')
+        .select('*')
+        .eq('user_id', window.App.user.id)
+        .eq('mode', currentMode)
+        .order('is_favorite', { ascending: false })
+        .order('created_at', { ascending: false });
     window.App.state.characters = data || [];
     window.App.renderCharacters();
 };
