@@ -49,6 +49,12 @@
     <aside id="sidebar" class="side-menu">
         <button id="mobile-sidebar-close" style="display: none;">&times;</button>
         <div class="logo-container"><span class="logo-text">RubyBox</span></div>
+
+        <div id="mode-switcher" style="display: flex; gap: 10px; margin-bottom: 15px; padding: 0 15px;">
+            <button class="mode-btn active" data-mode="chat">Chat</button>
+            <button class="mode-btn" data-mode="code">Code</button>
+            <button class="mode-btn" data-mode="nsfw">NSFW</button>
+        </div>
         
         <div id="auth-panel" style="margin-bottom: 15px; flex-shrink: 0;">
             <button id="login-btn" class="primary-btn" style="padding: 10px;">Sign In</button>
