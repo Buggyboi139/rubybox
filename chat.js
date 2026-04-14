@@ -18,7 +18,7 @@ window.App.extractImageFromContent = function(content) {
 window.App.generateChatTitle = async function(firstPrompt, convId) {
     if (!window.App.UI.apiKey.value) return;
     try {
-        const response = await fetch("[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)", {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -168,7 +168,7 @@ window.App.execute = async function(fromVoice = false) {
         if (window.App.currentMode === 'code' && messages.length > 1) {
             const routeInput = typeof messages[messages.length - 1].content === 'string' ? messages[messages.length - 1].content : JSON.stringify(messages[messages.length - 1].content);
             try {
-                const routeRes = await fetch("[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)", {
+                const routeRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                     method: "POST",
                     headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -190,7 +190,7 @@ window.App.execute = async function(fromVoice = false) {
             }
         }
 
-        const response = await fetch("[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)", {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
             signal: window.App.controller.signal,
@@ -305,7 +305,7 @@ CRITICAL SYSTEM REQUIREMENT: You MUST output your entire response as a single, v
 "system_prompt": "The complete, detailed text of all 5 categories requested above, cleanly formatted in markdown."
 }`;
 
-        const response = await fetch("[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)", {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: { 
                 "Authorization": `Bearer ${window.App.UI.apiKey.value}`, 
