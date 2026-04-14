@@ -28,6 +28,7 @@ window.App.renderCharacters = function() {
         div.className = 'char-card';
         const avatarSrc = c.avatar || window.App.DEFAULT_AI_AVATAR;
         div.innerHTML = `
+            <button class="char-fav" data-id="${c.id}" style="position: absolute; top: 10px; right: 65px; background: none; border: none; font-size: 1.2rem; cursor: pointer; color: ${c.is_favorite ? '#fbbf24' : '#64748b'};">★</button>
             <button class="char-edit" data-id="${c.id}">✎</button>
             <button class="char-del" data-id="${c.id}">&times;</button>
             <img src="${DOMPurify.sanitize(avatarSrc)}" alt="avatar">
@@ -36,10 +37,18 @@ window.App.renderCharacters = function() {
         `;
         
         div.addEventListener('click', (e) => {
-            if (e.target.classList.contains('char-del') || e.target.classList.contains('char-edit')) return;
+            if (e.target.classList.contains('char-del') || e.target.classList.contains('char-edit') || e.target.classList.contains('char-fav')) return;
             window.App.state.activeCharacter = c;
             window.App.renderActiveCharacter();
             window.App.UI.charModal.classList.add('hidden');
+        });
+
+        div.querySelector('.char-fav').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await window.supabaseClient.from('characters').update({ is_favorite: false }).eq('mode', c.mode).eq('user_id', window.App.user.id);
+            await window.supabaseClient.from('characters').update({ is_favorite: true }).eq('id', c.id);
+            await window.App.loadCharacters();
+            if (!window.App.currentConversationId) window.App.startNewChat();
         });
 
         div.querySelector('.char-edit').addEventListener('click', (e) => {
@@ -65,7 +74,7 @@ window.App.renderCharacters = function() {
             await window.supabaseClient.from('characters').delete().eq('id', c.id);
             if (window.App.state.activeCharacter && window.App.state.activeCharacter.id === c.id) {
                 window.App.state.activeCharacter = null;
-                window.App.renderActiveCharacter();
+                window.App.startNewChat();
             }
             if (window.App.editingCharId === c.id) {
                 window.App.UI.cancelEditCharBtn.click();
@@ -81,9 +90,17 @@ window.App.renderActiveCharacter = function() {
     if (window.App.state.activeCharacter) {
         window.App.UI.activeCharDisplay.classList.remove('hidden');
         window.App.UI.activeCharImg.src = window.App.state.activeCharacter.avatar || window.App.DEFAULT_AI_AVATAR;
-        window.App.UI.activeCharName.textContent = window.App.state.activeCharacter.name;
+        const isBase = window.App.state.activeCharacter.id.startsWith('base-');
+        window.App.UI.activeCharName.innerHTML = `${window.App.state.activeCharacter.name} ${isBase ? '<span style="font-size: 0.6rem; background: var(--primary); padding: 2px 4px; border-radius: 4px; margin-left: 5px;">BASE</span>' : ''}`;
+        
+        window.App.UI.prompt.disabled = false;
+        window.App.UI.prompt.placeholder = "Message...";
+        window.App.UI.sendBtn.disabled = false;
     } else {
         window.App.UI.activeCharDisplay.classList.add('hidden');
+        window.App.UI.prompt.disabled = true;
+        window.App.UI.prompt.placeholder = "Select or create a persona to chat...";
+        window.App.UI.sendBtn.disabled = true;
     }
 };
 
@@ -200,7 +217,8 @@ window.App.addMessage = function(role, content, streaming = false, msgId = null)
                     const historyToKeep = window.App.state.history.slice(0, domIndex);
 
                     const currentMode = window.App.currentMode || 'chat';
-                    const { data: convData } = await window.supabaseClient.from('conversations').insert([{ user_id: window.App.user.id, title: 'Branched Chat', mode: currentMode }]).select().single();
+                    const charId = (window.App.state.activeCharacter && !window.App.state.activeCharacter.id.startsWith('base-')) ? window.App.state.activeCharacter.id : null;
+                    const { data: convData } = await window.supabaseClient.from('conversations').insert([{ user_id: window.App.user.id, title: 'Branched Chat', mode: currentMode, character_id: charId }]).select().single();
                     if (!convData) return;
                     window.App.currentConversationId = convData.id;
                     window.App.state.history = [];
