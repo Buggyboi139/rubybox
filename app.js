@@ -1,3 +1,11 @@
+window.App.debounce = function(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+};
+
 window.App.handleTranscriptionSubmit = function(text) {
     const currentText = window.App.UI.prompt.value;
     window.App.UI.prompt.value = currentText ? currentText + " " + text : text;
@@ -5,6 +13,8 @@ window.App.handleTranscriptionSubmit = function(text) {
 };
 
 window.App.setupEventListeners = function() {
+    window.App.debouncedSaveUserSettings = window.App.debounce(window.App.saveUserSettings, 500);
+
     window.App.UI.chatLog.addEventListener('scroll', () => { 
         const diff = window.App.UI.chatLog.scrollHeight - window.App.UI.chatLog.scrollTop - window.App.UI.chatLog.clientHeight;
         window.App.isAutoScrolling = diff < 10; 
@@ -39,11 +49,9 @@ window.App.setupEventListeners = function() {
     document.querySelectorAll('.mode-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             document.querySelectorAll('.mode-btn').forEach(b => {
-                b.classList.remove('primary-btn');
-                b.classList.add('secondary-btn');
+                b.classList.remove('active');
             });
-            e.target.classList.remove('secondary-btn');
-            e.target.classList.add('primary-btn');
+            e.target.classList.add('active');
             
             window.App.currentMode = e.target.getAttribute('data-mode');
             window.App.applyModeSettings();
@@ -120,21 +128,21 @@ window.App.setupEventListeners = function() {
         }
     });
 
-    window.App.UI.sysPrompt.addEventListener('change', window.App.saveUserSettings);
-    window.App.UI.narrativePrompt.addEventListener('change', window.App.saveUserSettings);
-    window.App.UI.apiKey.addEventListener('change', window.App.saveUserSettings);
+    window.App.UI.sysPrompt.addEventListener('change', window.App.debouncedSaveUserSettings);
+    window.App.UI.narrativePrompt.addEventListener('change', window.App.debouncedSaveUserSettings);
+    window.App.UI.apiKey.addEventListener('change', window.App.debouncedSaveUserSettings);
     
     window.App.UI.tempSlider.addEventListener('input', (e) => { window.App.UI.tempVal.textContent = e.target.value; });
-    window.App.UI.tempSlider.addEventListener('change', window.App.saveUserSettings);
+    window.App.UI.tempSlider.addEventListener('change', window.App.debouncedSaveUserSettings);
     
     window.App.UI.ctxSlider.addEventListener('input', (e) => { window.App.UI.ctxVal.textContent = e.target.value; });
-    window.App.UI.ctxSlider.addEventListener('change', window.App.saveUserSettings);
+    window.App.UI.ctxSlider.addEventListener('change', window.App.debouncedSaveUserSettings);
 
     window.App.UI.maxTokensSlider.addEventListener('input', (e) => { window.App.UI.maxTokensVal.textContent = e.target.value; });
-    window.App.UI.maxTokensSlider.addEventListener('change', window.App.saveUserSettings);
+    window.App.UI.maxTokensSlider.addEventListener('change', window.App.debouncedSaveUserSettings);
     
-    window.App.UI.model.addEventListener('change', window.App.saveUserSettings);
-    window.App.UI.voiceMode.addEventListener('change', window.App.saveUserSettings);
+    window.App.UI.model.addEventListener('change', window.App.debouncedSaveUserSettings);
+    window.App.UI.voiceMode.addEventListener('change', window.App.debouncedSaveUserSettings);
     window.App.UI.chatSearch.addEventListener('input', window.App.loadConversations);
 
     window.App.UI.attachImgBtn.addEventListener('click', () => window.App.UI.imageUpload.click());
@@ -187,6 +195,7 @@ window.App.setupEventListeners = function() {
             window.App.showToast("Please sign in first.", "error");
             return;
         }
+        if (window.App.isExecuting) return;
         window.App.UI.voiceSheet.classList.remove('hidden');
         setTimeout(() => window.App.UI.voiceSheet.classList.add('show'), 10);
         
@@ -239,23 +248,6 @@ window.App.setupEventListeners = function() {
         window.App.UI.tokenCounter.innerText = `~${tokenEstimate} tokens`;
     });
     window.App.UI.prompt.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window.App.execute(false); } });
-};
-
-window.App.handleVoiceStateChange = function(state) {
-    const statusText = document.getElementById('voice-status-text');
-    if (!statusText) return;
-    
-    if (state === 'listening') {
-        statusText.textContent = "Listening...";
-    } else if (state === 'thinking') {
-        statusText.textContent = "Thinking...";
-    } else if (state === 'speaking') {
-        statusText.textContent = "Speaking...";
-    } else if (state === 'error') {
-        statusText.textContent = "Error";
-    } else {
-        statusText.textContent = "Ready";
-    }
 };
 
 window.App.initialize = async function(authenticatedUser) {
