@@ -226,7 +226,11 @@ window.App.setupEventListeners = function() {
 
     window.App.UI.charsBtn.addEventListener('click', () => { if(window.App.user) { window.App.UI.sidebar.classList.remove('show'); window.App.UI.overlay.classList.remove('show'); window.App.UI.charModal.classList.remove('hidden'); }});
     window.App.UI.closeCharModal.addEventListener('click', () => window.App.UI.charModal.classList.add('hidden'));
-    window.App.UI.clearCharBtn.addEventListener('click', () => { window.App.state.activeCharacter = null; window.App.renderActiveCharacter(); });
+    
+    window.App.UI.clearCharBtn.addEventListener('click', () => { 
+        window.App.state.activeCharacter = window.App.BASE_PERSONAS[window.App.currentMode || 'chat']; 
+        window.App.renderActiveCharacter(); 
+    });
 
     window.App.UI.prompt.addEventListener('input', function() { 
         this.style.height = '50px'; 
