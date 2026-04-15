@@ -5,18 +5,20 @@ window.App = {
         if (this.isBootstrapped) return;
 
         window.AppUI.init();
-        window.AppEvents.init();
 
-        if (window.AppSupabase && window.AppSupabase.isReady) {
-            await window.AppSupabase.isReady();
+        if (window.AppSupabase && !window.AppSupabase.isReady()) {
+            window.AppSupabase.init(
+                window.AppConfig.SUPABASE_URL,
+                window.AppConfig.SUPABASE_ANON_KEY
+            );
         }
 
+        window.AppEvents.init();
         this.isBootstrapped = true;
 
-        const session = await window.AuthService.checkSession();
-
-        if (session && session.user) {
-            await this.hydrateAuthenticatedApp(session.user);
+        const user = await window.AppAuthService.checkSession();
+        if (user) {
+            await this.hydrateAuthenticatedApp(user);
         }
 
         if (window.AppSupabase && window.AppSupabase.client) {
