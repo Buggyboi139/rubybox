@@ -16,13 +16,13 @@ window.App.extractImageFromContent = function(content) {
 };
 
 window.App.generateChatTitle = async function(firstPrompt, convId) {
-    if (!window.App.UI.geminiApiKey.value) return; 
+    if (!window.App.UI.apiKey.value) return; 
     try {
-        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
-            headers: { "Authorization": `Bearer ${window.App.UI.geminiApiKey.value}`, "Content-Type": "application/json" },
+            headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-                model: "gemini-2.5-flash",
+                model: window.App.UI.model.value || "deepseek/deepseek-v3.2",
                 messages: [{ role: "user", content: `Summarize this into a 3-5 word title. Only output the title: ${firstPrompt}` }],
                 stream: false
             })
@@ -164,16 +164,12 @@ window.App.execute = async function(fromVoice = false) {
         const systemContent = `${activeCharPrompt}${window.App.UI.sysPrompt.value}\n\n[NARRATIVE CONTEXT]\n${window.App.UI.narrativePrompt.value}\n\n[PERSISTENT MEMORY]\n${window.App.UI.persistMem.value}`;
         const messages = [{ role: "system", content: systemContent }, ...recent];
         
-        let targetModel = window.App.UI.model.value;
+        let targetModel = window.App.UI.model.value || "deepseek/deepseek-v3.2";
         let apiUrl = "https://openrouter.ai/api/v1/chat/completions";
         let usedApiKey = window.App.UI.apiKey.value;
 
-        if (targetModel.startsWith('gemini')) {
-            apiUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-            usedApiKey = window.App.UI.geminiApiKey.value;
-            if (!usedApiKey) throw new Error("Google AI Studio key is required for Gemini models.");
-        } else if (!usedApiKey) {
-            throw new Error("OpenRouter API key is required for this model.");
+        if (!usedApiKey) {
+            throw new Error("OpenRouter API key is required.");
         }
 
         const response = await fetch(apiUrl, {
