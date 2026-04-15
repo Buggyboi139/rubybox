@@ -28,7 +28,6 @@ window.App.renderCharacters = function() {
         div.className = 'char-card';
         const avatarSrc = c.avatar || window.App.DEFAULT_AI_AVATAR;
         div.innerHTML = `
-            <button class="char-fav" data-id="${DOMPurify.sanitize(c.id)}" style="color: ${c.is_favorite ? '#fbbf24' : '#64748b'};">★</button>
             <button class="char-edit" data-id="${DOMPurify.sanitize(c.id)}">✎</button>
             <button class="char-del" data-id="${DOMPurify.sanitize(c.id)}">&times;</button>
             <img src="${DOMPurify.sanitize(avatarSrc)}" alt="avatar">
@@ -36,19 +35,12 @@ window.App.renderCharacters = function() {
             <div class="char-preview-tooltip">${DOMPurify.sanitize(c.system_prompt)}</div>
         `;
         
-        div.addEventListener('click', (e) => {
-            if (e.target.classList.contains('char-del') || e.target.classList.contains('char-edit') || e.target.classList.contains('char-fav')) return;
+        div.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('char-del') || e.target.classList.contains('char-edit')) return;
             window.App.state.activeCharacter = c;
             window.App.renderActiveCharacter();
             window.App.UI.charModal.classList.add('hidden');
-        });
-
-        div.querySelector('.char-fav').addEventListener('click', async (e) => {
-            e.stopPropagation();
-            await window.supabaseClient.from('characters').update({ is_favorite: false }).eq('mode', c.mode).eq('user_id', window.App.user.id);
-            await window.supabaseClient.from('characters').update({ is_favorite: true }).eq('id', c.id);
-            await window.App.loadCharacters();
-            if (!window.App.currentConversationId) window.App.startNewChat();
+            await window.App.startNewChat();
         });
 
         div.querySelector('.char-edit').addEventListener('click', (e) => {
@@ -631,6 +623,113 @@ window.App.execute = async function(fromVoice = false) {
         window.App.UI.stopBtn.classList.add('hidden');
         window.App.UI.sendBtn.classList.remove('hidden');
         window.App.controller = null;
+        window.App.isExecuting = false;
+    }
+};
+
+window.App.generateImage = async function() {
+    if (!window.App.user) {
+        window.App.showToast("Please sign in first.", "error");
+        return;
+    }
+    if (window.App.isExecuting) return;
+    
+    const input = window.App.UI.prompt.value.trim();
+    if (!input) {
+        window.App.showToast("Enter a prompt to generate an image.", "error");
+        return;
+    }
+
+    window.App.isExecuting = true;
+    window.App.UI.prompt.value = "";
+    window.App.UI.prompt.style.height = '50px';
+    window.App.UI.tokenCounter.innerText = "~0 tokens";
+    window.App.UI.stopBtn.classList.remove('hidden');
+    window.App.UI.sendBtn.classList.add('hidden');
+
+    try {
+        if (!window.App.state.activeCharacter) {
+            window.App.state.activeCharacter = window.App.BASE_PERSONAS[window.App.currentMode || 'chat'];
+            window.App.renderActiveCharacter();
+        }
+
+        if (!window.App.currentConversationId) {
+            const title = input.substring(0, 30).trim() + "...";
+            const currentMode = window.App.currentMode || 'chat';
+            const charId = (window.App.state.activeCharacter && !window.App.state.activeCharacter.id.startsWith('base-')) ? window.App.state.activeCharacter.id : null;
+            
+            const { data: newChat, error: chatError } = await window.supabaseClient
+                .from('conversations')
+                .insert([{ 
+                    user_id: window.App.user.id, 
+                    title: title, 
+                    summary_memory: window.App.UI.persistMem.value.trim(),
+                    mode: currentMode,
+                    character_id: charId
+                }])
+                .select()
+                .single();
+                
+            if (chatError) throw chatError;
+            window.App.currentConversationId = newChat.id;
+        }
+
+        const { data: userData, error: userError } = await window.supabaseClient
+            .from('messages')
+            .insert([{ 
+                conversation_id: window.App.currentConversationId, 
+                user_id: window.App.user.id, 
+                role: 'user', 
+                content: input 
+            }])
+            .select()
+            .single();
+            
+        if (userError) throw userError;
+        
+        window.App.state.history.push({ role: 'user', content: input, id: userData.id });
+        window.App.addMessage('user', input, false, userData.id);
+        
+        if(window.App.state.history.length === 1) {
+            window.App.generateChatTitle(input, window.App.currentConversationId);
+            window.App.loadConversations();
+        }
+
+        window.App.showToast("Generating image...");
+        const encodedPrompt = encodeURIComponent(input);
+        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=512&height=512&nologo=true`;
+        
+        const imgRes = await fetch(imageUrl);
+        const imgBlob = await imgRes.blob();
+        const fileName = `gen_${window.App.user.id}_${Date.now()}.jpg`;
+        
+        const { error: uploadError } = await window.supabaseClient.storage.from('chat_images').upload(fileName, imgBlob);
+        
+        let finalAvatarUrl = imageUrl; 
+        if (!uploadError) {
+            const { data: urlData } = window.supabaseClient.storage.from('chat_images').getPublicUrl(fileName);
+            finalAvatarUrl = urlData.publicUrl;
+        }
+
+        const contentPayload = [{ type: "text", text: "Image generated:" }, { type: "image_url", image_url: { url: finalAvatarUrl } }];
+        const dbContent = JSON.stringify(contentPayload);
+
+        const { data: aiData, error: aiError } = await window.supabaseClient
+            .from('messages')
+            .insert([{ conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: 'assistant', content: dbContent }])
+            .select()
+            .single();
+            
+        if (aiError) throw aiError;
+
+        window.App.state.history.push({ role: 'assistant', content: contentPayload, id: aiData.id });
+        window.App.addMessage('assistant', contentPayload, false, aiData.id);
+
+    } catch (e) {
+        window.App.showToast(`Generation failed: ${e.message}`, "error");
+    } finally {
+        window.App.UI.stopBtn.classList.add('hidden');
+        window.App.UI.sendBtn.classList.remove('hidden');
         window.App.isExecuting = false;
     }
 };
