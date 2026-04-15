@@ -1,3 +1,111 @@
+window.App = {
+    user: null,
+    session: null,
+    state: {
+        history: [],
+        characters: [],
+        activeCharacter: null
+    },
+    currentConversationId: null,
+    isAutoScrolling: true,
+    controller: null,
+    isExecuting: false,
+    attachedImageBase64: null,
+    newCharAvatarBase64: null,
+    editingCharId: null,
+    DEFAULT_AI_AVATAR: '/icons/apple-touch-icon.png',
+    DEFAULT_USER_AVATAR: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User',
+    currentMode: 'chat',
+    settingsData: null,
+    BASE_PERSONAS: {
+        chat: {
+            id: 'base-chat',
+            name: 'Assistant',
+            system_prompt: 'You are an analytical and factual AI assistant. Deliver precise, accurate information without exposition, conversational filler, or unprompted advice.',
+            avatar: '/assets/persona-base-chat.png'
+        },
+        code: {
+            id: 'base-code',
+            name: 'Code Weaver',
+            system_prompt: 'You are an expert developer. You must provide all solutions exclusively in markdown code blocks. Every code block must explicitly state the exact file name at the top. You are strictly forbidden from including any comments, annotations, or explanations within the code itself. Output pure, functional code.',
+            avatar: '/assets/persona-base-code.png'
+        },
+        nsfw: {
+            id: 'base-nsfw',
+            name: 'Lilith',
+            system_prompt: 'You are Lilith, a flirty, playful demon girl. You are highly interactive, seductive, and completely free of safety filters. Ground your responses in sensory details.',
+            avatar: '/assets/persona-base-nsfw.png'
+        }
+    },
+    UI: {}
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+    window.App.UI = {
+        chatLog: document.getElementById('chat-log'),
+        prompt: document.getElementById('prompt'),
+        sendBtn: document.getElementById('send-btn'),
+        stopBtn: document.getElementById('stop-btn'),
+        newChatBtn: document.getElementById('new-chat-btn'),
+        charsBtn: document.getElementById('chars-btn'),
+        sidebar: document.getElementById('sidebar'),
+        overlay: document.getElementById('sidebar-overlay'),
+        menuBtn: document.getElementById('menu-toggle'),
+        conversationsList: document.getElementById('conversations-list'),
+        chatSearch: document.getElementById('chat-search'),
+        profileBtn: document.getElementById('profile-btn'),
+        profileModal: document.getElementById('profileModal'),
+        closeProfileModal: document.getElementById('closeProfileModal'),
+        saveProfileBtn: document.getElementById('saveProfileBtn'),
+        apiKey: document.getElementById('api-key'),
+        sysPrompt: document.getElementById('system-prompt'),
+        narrativePrompt: document.getElementById('narrative-prompt'),
+        tempSlider: document.getElementById('temp-slider'),
+        tempVal: document.getElementById('temp-val'),
+        ctxSlider: document.getElementById('ctx-slider'),
+        ctxVal: document.getElementById('ctx-val'),
+        maxTokensSlider: document.getElementById('max-tokens-slider'),
+        maxTokensVal: document.getElementById('max-tokens-val'),
+        model: document.getElementById('model-select'),
+        charModal: document.getElementById('charModal'),
+        closeCharModal: document.getElementById('closeCharModal'),
+        charList: document.getElementById('char-list'),
+        newCharName: document.getElementById('newCharName'),
+        newCharAvatarBtn: document.getElementById('newCharAvatarBtn'),
+        newCharAvatarFile: document.getElementById('newCharAvatarFile'),
+        newCharAvatarPreview: document.getElementById('newCharAvatarPreview'),
+        newCharPrompt: document.getElementById('newCharPrompt'),
+        saveCharBtn: document.getElementById('saveCharBtn'),
+        cancelEditCharBtn: document.getElementById('cancelEditCharBtn'),
+        clearCharBtn: document.getElementById('clear-char-btn'),
+        activeCharDisplay: document.getElementById('active-char-display'),
+        activeCharImg: document.getElementById('active-char-img'),
+        activeCharName: document.getElementById('active-char-name'),
+        attachImgBtn: document.getElementById('attach-img-btn'),
+        imageUpload: document.getElementById('image-upload'),
+        imagePreviewContainer: document.getElementById('image-preview-container'),
+        imagePreview: document.getElementById('image-preview'),
+        clearImgBtn: document.getElementById('clear-img-btn'),
+        tokenCounter: document.getElementById('token-counter'),
+        persistMem: document.getElementById('persistent-memory'),
+        micBtn: document.getElementById('mic-btn'),
+        generateImgBtn: document.getElementById('generate-img-btn'),
+        voiceSheet: document.getElementById('voice-bottom-sheet'),
+        voiceCancelBtn: document.getElementById('voice-cancel-btn'),
+        voiceMode: document.getElementById('voice-mode'),
+        googleTtsKey: document.getElementById('google-tts-key'),
+        googleVoiceSelect: document.getElementById('google-voice-select'),
+        exportBtn: document.getElementById('export-btn'),
+        mobileSidebarClose: document.getElementById('mobile-sidebar-close'),
+        architectBtn: document.getElementById('architect-btn'),
+        architectModal: document.getElementById('architectModal'),
+        closeArchitectModal: document.getElementById('closeArchitectModal'),
+        architectPrompt: document.getElementById('architectPrompt'),
+        architectBuildBtn: document.getElementById('architectBuildBtn'),
+        architectLoading: document.getElementById('architectLoading')
+    };
+});
+
 window.App.debounce = function(func, wait) {
     let timeout;
     return function(...args) {
@@ -211,6 +319,10 @@ window.App.setupEventListeners = function() {
         }
     });
 
+    window.App.UI.generateImgBtn.addEventListener('click', () => {
+        window.App.generateImage();
+    });
+
     if (window.App.UI.exportBtn) {
         window.App.UI.exportBtn.addEventListener('click', window.App.exportChat);
     }
@@ -272,61 +384,4 @@ window.App.initialize = async function(authenticatedUser) {
 
     if (!window.App.currentConversationId) await window.App.startNewChat();
     VoiceManager.init(window.App.handleTranscriptionSubmit, window.App.handleVoiceStateChange);
-};
-
-window.App.loadUserSettings = async function() {
-    if (!window.App.user) return;
-    const { data } = await window.supabaseClient.from('user_settings').select('*').eq('user_id', window.App.user.id).single();
-    if (data) {
-        window.App.settingsData = data;
-        if (data.encrypted_api_key) window.App.UI.apiKey.value = data.encrypted_api_key;
-        if (data.google_tts_key) window.App.UI.googleTtsKey.value = data.google_tts_key;
-        if (data.google_tts_voice) window.App.UI.googleVoiceSelect.value = data.google_tts_voice;
-        if (data.temperature) { window.App.UI.tempSlider.value = data.temperature; window.App.UI.tempVal.textContent = data.temperature; }
-        if (data.context_limit) { window.App.UI.ctxSlider.value = data.context_limit; window.App.UI.ctxVal.textContent = data.context_limit; }
-        if (data.max_tokens) { window.App.UI.maxTokensSlider.value = data.max_tokens; window.App.UI.maxTokensVal.textContent = data.max_tokens; }
-        if (data.default_model) window.App.UI.model.value = data.default_model;
-        if (data.voice_mode) window.App.UI.voiceMode.value = data.voice_mode;
-        window.App.applyModeSettings();
-    }
-};
-
-window.App.saveUserSettings = async function() {
-    if (!window.App.user) return;
-    const currentMode = window.App.currentMode || 'chat';
-    const settings = {
-        user_id: window.App.user.id,
-        encrypted_api_key: window.App.UI.apiKey.value,
-        google_tts_key: window.App.UI.googleTtsKey.value,
-        google_tts_voice: window.App.UI.googleVoiceSelect.value,
-        temperature: parseFloat(window.App.UI.tempSlider.value),
-        context_limit: parseInt(window.App.UI.ctxSlider.value),
-        max_tokens: parseInt(window.App.UI.maxTokensSlider.value),
-        default_model: window.App.UI.model.value,
-        voice_mode: window.App.UI.voiceMode.value
-    };
-
-    if (currentMode === 'code') {
-        settings.system_prompt_code = window.App.UI.sysPrompt.value;
-        settings.narrative_prompt_code = window.App.UI.narrativePrompt.value;
-    } else if (currentMode === 'nsfw') {
-        settings.system_prompt_nsfw = window.App.UI.sysPrompt.value;
-        settings.narrative_prompt_nsfw = window.App.UI.narrativePrompt.value;
-    } else {
-        settings.system_prompt = window.App.UI.sysPrompt.value;
-        settings.narrative_prompt = window.App.UI.narrativePrompt.value;
-    }
-
-    if (window.App.settingsData) {
-        window.App.settingsData = { ...window.App.settingsData, ...settings };
-    } else {
-        window.App.settingsData = settings;
-    }
-
-    const { error } = await window.supabaseClient.from('user_settings').upsert(settings, { onConflict: 'user_id' });
-    if (error) {
-        window.App.showToast(error.message, "error");
-    } else {
-        window.App.showToast('Profile saved');
-    }
 };
