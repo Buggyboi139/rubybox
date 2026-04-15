@@ -65,7 +65,8 @@ window.AppMarkdown = {
     renderWithThink(text) {
         if (!text) return '';
 
-        const thinkOpen = '';
+        const thinkOpen = '<think>';
+        const thinkClose = '</think>';
 
         let result = '';
         let lastIndex = 0;
