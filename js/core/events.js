@@ -298,26 +298,12 @@ window.AppEvents = {
     _bindSettings() {
         const ui = window.AppUI.get();
 
-        ui.apiKey.addEventListener('change', async () => {
-            const value = ui.apiKey.value.trim();
-            if (!value) return;
-            const result = await window.AppConfigLoader.encryptAndSaveApiKey(value);
-            if (result.error) {
-                window.AppToasts.show('Failed to encrypt API key', 'error');
-            } else {
-                window.AppToasts.show('API key encrypted and saved');
-            }
+        ui.apiKey.addEventListener('change', () => {
+            window.AppFeaturesSettings.saveApiKey(ui.apiKey.value);
         });
 
-        ui.googleTtsKey.addEventListener('change', async () => {
-            const value = ui.googleTtsKey.value.trim();
-            if (!value) return;
-            const result = await window.AppConfigLoader.encryptAndSaveTtsKey(value);
-            if (result.error) {
-                window.AppToasts.show('Failed to encrypt TTS key', 'error');
-            } else {
-                window.AppToasts.show('TTS key encrypted and saved');
-            }
+        ui.googleTtsKey.addEventListener('change', () => {
+            window.AppFeaturesSettings.saveTtsKey(ui.googleTtsKey.value);
         });
     },
 
