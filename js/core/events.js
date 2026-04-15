@@ -324,19 +324,19 @@ window.AppEvents = {
                 const pass = ui.authPassword.value;
                 const user = await window.AppAuthService.login(email, pass);
                 window.AppModals.close('authModal');
-                if (window.App) window.App.initialize(user);
+                if (window.App) window.App.hydrateAuthenticatedApp(user);
             } catch (e) {
                 window.AppToasts.show(e.message, 'error');
             }
         });
-
+        
         ui.authSignupBtn.addEventListener('click', async () => {
             try {
                 const email = ui.authEmail.value;
                 const pass = ui.authPassword.value;
                 const user = await window.AppAuthService.signup(email, pass);
                 window.AppModals.close('authModal');
-                if (window.App) window.App.initialize(user);
+                if (window.App) window.App.hydrateAuthenticatedApp(user);
             } catch (e) {
                 window.AppToasts.show(e.message, 'error');
             }
