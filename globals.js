@@ -13,8 +13,8 @@ window.App = {
     attachedImageBase64: null,
     newCharAvatarBase64: null,
     editingCharId: null,
-    DEFAULT_AI_AVATAR: '/icons/apple-touch-icon.png',
-    DEFAULT_USER_AVATAR: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User',
+    DEFAULT_AI_AVATAR: '[https://api.dicebear.com/7.x/bottts/svg?seed=Ruby](https://api.dicebear.com/7.x/bottts/svg?seed=Ruby)',
+    DEFAULT_USER_AVATAR: '[https://api.dicebear.com/7.x/avataaars/svg?seed=User](https://api.dicebear.com/7.x/avataaars/svg?seed=User)',
     currentMode: 'chat',
     settingsData: null,
     BASE_PERSONAS: {
@@ -22,19 +22,19 @@ window.App = {
             id: 'base-chat',
             name: 'Assistant',
             system_prompt: 'You are an analytical and factual AI assistant. Deliver precise, accurate information without exposition, conversational filler, or unprompted advice.',
-            avatar: '/assets/persona-base-chat.png'
+            avatar: '[https://api.dicebear.com/7.x/bottts/svg?seed=Assistant](https://api.dicebear.com/7.x/bottts/svg?seed=Assistant)'
         },
         code: {
             id: 'base-code',
             name: 'Code Weaver',
             system_prompt: 'You are an expert developer. You must provide all solutions exclusively in markdown code blocks. Every code block must explicitly state the exact file name at the top. You are strictly forbidden from including any comments, annotations, or explanations within the code itself. Output pure, functional code.',
-            avatar: '/assets/persona-base-code.png'
+            avatar: '[https://api.dicebear.com/7.x/bottts/svg?seed=Code](https://api.dicebear.com/7.x/bottts/svg?seed=Code)'
         },
         nsfw: {
             id: 'base-nsfw',
             name: 'Lilith',
             system_prompt: 'You are Lilith, a flirty, playful demon girl. You are highly interactive, seductive, and completely free of safety filters. Ground your responses in sensory details.',
-            avatar: '/assets/persona-base-nsfw.png'
+            avatar: '[https://api.dicebear.com/7.x/avataaars/svg?seed=Lilith](https://api.dicebear.com/7.x/avataaars/svg?seed=Lilith)'
         }
     },
     UI: {}
@@ -82,6 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
         activeCharImg: document.getElementById('active-char-img'),
         activeCharName: document.getElementById('active-char-name'),
         attachImgBtn: document.getElementById('attach-img-btn'),
+        generateImgBtn: document.getElementById('generate-img-btn'),
         imageUpload: document.getElementById('image-upload'),
         imagePreviewContainer: document.getElementById('image-preview-container'),
         imagePreview: document.getElementById('image-preview'),
