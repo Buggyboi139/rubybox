@@ -131,6 +131,7 @@ window.App.setupEventListeners = function() {
     window.App.UI.sysPrompt.addEventListener('change', window.App.debouncedSaveUserSettings);
     window.App.UI.narrativePrompt.addEventListener('change', window.App.debouncedSaveUserSettings);
     window.App.UI.apiKey.addEventListener('change', window.App.debouncedSaveUserSettings);
+    window.App.UI.geminiApiKey.addEventListener('change', window.App.debouncedSaveUserSettings);
     
     window.App.UI.tempSlider.addEventListener('input', (e) => { window.App.UI.tempVal.textContent = e.target.value; });
     window.App.UI.tempSlider.addEventListener('change', window.App.debouncedSaveUserSettings);
@@ -265,4 +266,63 @@ window.App.initialize = async function(authenticatedUser) {
 
     if (!window.App.currentConversationId) await window.App.startNewChat();
     VoiceManager.init(window.App.handleTranscriptionSubmit, window.App.handleVoiceStateChange);
+};
+
+window.App.loadUserSettings = async function() {
+    if (!window.App.user) return;
+    const { data } = await window.supabaseClient.from('user_settings').select('*').eq('user_id', window.App.user.id).single();
+    if (data) {
+        window.App.settingsData = data;
+        if (data.encrypted_api_key) window.App.UI.apiKey.value = data.encrypted_api_key;
+        if (data.gemini_api_key) window.App.UI.geminiApiKey.value = data.gemini_api_key;
+        if (data.google_tts_key) window.App.UI.googleTtsKey.value = data.google_tts_key;
+        if (data.google_tts_voice) window.App.UI.googleVoiceSelect.value = data.google_tts_voice;
+        if (data.temperature) { window.App.UI.tempSlider.value = data.temperature; window.App.UI.tempVal.textContent = data.temperature; }
+        if (data.context_limit) { window.App.UI.ctxSlider.value = data.context_limit; window.App.UI.ctxVal.textContent = data.context_limit; }
+        if (data.max_tokens) { window.App.UI.maxTokensSlider.value = data.max_tokens; window.App.UI.maxTokensVal.textContent = data.max_tokens; }
+        if (data.default_model) window.App.UI.model.value = data.default_model;
+        if (data.voice_mode) window.App.UI.voiceMode.value = data.voice_mode;
+        window.App.applyModeSettings();
+    }
+};
+
+window.App.saveUserSettings = async function() {
+    if (!window.App.user) return;
+    const currentMode = window.App.currentMode || 'chat';
+    const settings = {
+        user_id: window.App.user.id,
+        encrypted_api_key: window.App.UI.apiKey.value,
+        gemini_api_key: window.App.UI.geminiApiKey.value,
+        google_tts_key: window.App.UI.googleTtsKey.value,
+        google_tts_voice: window.App.UI.googleVoiceSelect.value,
+        temperature: parseFloat(window.App.UI.tempSlider.value),
+        context_limit: parseInt(window.App.UI.ctxSlider.value),
+        max_tokens: parseInt(window.App.UI.maxTokensSlider.value),
+        default_model: window.App.UI.model.value,
+        voice_mode: window.App.UI.voiceMode.value
+    };
+
+    if (currentMode === 'code') {
+        settings.system_prompt_code = window.App.UI.sysPrompt.value;
+        settings.narrative_prompt_code = window.App.UI.narrativePrompt.value;
+    } else if (currentMode === 'nsfw') {
+        settings.system_prompt_nsfw = window.App.UI.sysPrompt.value;
+        settings.narrative_prompt_nsfw = window.App.UI.narrativePrompt.value;
+    } else {
+        settings.system_prompt = window.App.UI.sysPrompt.value;
+        settings.narrative_prompt = window.App.UI.narrativePrompt.value;
+    }
+
+    if (window.App.settingsData) {
+        window.App.settingsData = { ...window.App.settingsData, ...settings };
+    } else {
+        window.App.settingsData = settings;
+    }
+
+    const { error } = await window.supabaseClient.from('user_settings').upsert(settings, { onConflict: 'user_id' });
+    if (error) {
+        window.App.showToast(error.message, "error");
+    } else {
+        window.App.showToast('Profile saved');
+    }
 };
