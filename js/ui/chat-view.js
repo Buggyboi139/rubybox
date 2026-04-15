@@ -13,10 +13,13 @@ window.AppChatView = {
         ui.chatLog.innerHTML = '';
     },
 
-    buildMessageContainer(role, messageId = null) {
+    buildMessageContainer(role, messageId = null, isStreaming = false) {
         const ui = window.AppUI.get();
         const container = document.createElement('div');
         container.className = `msg-container ${role}`;
+        if (isStreaming) {
+            container.id = 'streaming-container';
+        }
         if (messageId) {
             container.dataset.id = messageId;
         }
@@ -49,24 +52,25 @@ window.AppChatView = {
         const ui = window.AppUI.get();
         const { streaming = false } = options;
 
-        const existingStreaming = streaming ? document.getElementById('streaming-container') : null;
-        if (existingStreaming) {
-            return existingStreaming.querySelector('.content');
+        if (streaming) {
+            const existing = document.getElementById('streaming-container');
+            if (existing) {
+                return existing.querySelector('.content');
+            }
         }
 
-        const { container, msgDiv, content: contentEl } = this.buildMessageContainer(role, messageId);
+        const { container, msgDiv, content: contentEl } = this.buildMessageContainer(role, messageId, streaming);
 
         const imageUrl = window.AppMessageContent.extractImage(content);
         if (imageUrl) {
             const img = document.createElement('img');
             img.src = imageUrl;
             img.className = 'multimodal-img';
-            msgDiv.appendChild(img);
+            msgDiv.insertBefore(img, contentEl);
         }
 
         const text = window.AppMessageContent.extractText(content);
-        const rendered = window.AppMarkdown.renderWithThink(text);
-        contentEl.innerHTML = rendered;
+        contentEl.innerHTML = window.AppMarkdown.renderWithThink(text);
 
         if (!streaming) {
             const actions = document.createElement('div');
@@ -100,27 +104,34 @@ window.AppChatView = {
 
     finalizeStreamingMessage(messageId, content) {
         const streamingEl = document.getElementById('streaming-container');
-        if (streamingEl) {
-            streamingEl.id = '';
-            streamingEl.dataset.id = messageId;
-            const contentEl = streamingEl.querySelector('.content');
-            if (contentEl) {
-                const text = window.AppMessageContent.extractText(content);
-                contentEl.innerHTML = window.AppMarkdown.renderWithThink(text);
-            }
-            const actions = document.createElement('div');
-            actions.className = 'action-row';
-            window.AppMessageActions.attach(
-                actions,
-                'assistant',
-                content,
-                messageId,
-                streamingEl,
-                streamingEl.querySelector('.msg'),
-                contentEl
-            );
-            streamingEl.querySelector('.msg').appendChild(actions);
+        if (!streamingEl) return;
+
+        streamingEl.removeAttribute('id');
+        streamingEl.dataset.id = messageId;
+
+        const msgDiv = streamingEl.querySelector('.msg');
+        const contentEl = streamingEl.querySelector('.content');
+
+        if (contentEl) {
+            const text = window.AppMessageContent.extractText(content);
+            contentEl.innerHTML = window.AppMarkdown.renderWithThink(text);
         }
+
+        const existingActions = msgDiv.querySelector('.action-row');
+        if (existingActions) existingActions.remove();
+
+        const actions = document.createElement('div');
+        actions.className = 'action-row';
+        window.AppMessageActions.attach(
+            actions,
+            'assistant',
+            content,
+            messageId,
+            streamingEl,
+            msgDiv,
+            contentEl
+        );
+        msgDiv.appendChild(actions);
     },
 
     removeStreamingMessage() {
