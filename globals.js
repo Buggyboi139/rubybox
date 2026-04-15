@@ -39,7 +39,6 @@ window.App = {
     },
     UI: {}
 };
-
 document.addEventListener("DOMContentLoaded", () => {
     window.App.UI = {
         chatLog: document.getElementById('chat-log'),
@@ -87,6 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
         imagePreviewContainer: document.getElementById('image-preview-container'),
         imagePreview: document.getElementById('image-preview'),
         clearImgBtn: document.getElementById('clear-img-btn'),
+        scenarioImgBtn: document.getElementById('scenario-img-btn'),
         tokenCounter: document.getElementById('token-counter'),
         persistMem: document.getElementById('persistent-memory'),
         micBtn: document.getElementById('mic-btn'),
