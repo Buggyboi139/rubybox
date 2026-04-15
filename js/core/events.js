@@ -305,6 +305,12 @@ window.AppEvents = {
         ui.googleTtsKey.addEventListener('change', () => {
             window.AppFeaturesSettings.saveTtsKey(ui.googleTtsKey.value);
         });
+
+        if (ui.unlockKeysBtn) {
+            ui.unlockKeysBtn.addEventListener('click', () => {
+                window.AppFeaturesSettings._showPassphraseModal('unlock');
+            });
+        }
     },
 
     _bindAuth() {
@@ -328,7 +334,7 @@ window.AppEvents = {
                 window.AppToasts.show(e.message, 'error');
             }
         });
-
+        
         ui.authSignupBtn.addEventListener('click', async () => {
             try {
                 const email = ui.authEmail.value;
