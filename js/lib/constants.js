@@ -1,6 +1,7 @@
+js/lib/constants.js
 window.AppConfig = {
     SUPABASE_URL: 'https://anpdzypxekvqprtaneol.supabase.co',
-    SUPABASE_ANON_KEY: 'sb_publishable_q-8Ja0YXlEm89Qv86v4V0g_I5xcDapT',
+    SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
     OPENROUTER_API_URL: 'https://openrouter.ai/api/v1/chat/completions',
     GOOGLE_TTS_URL: 'https://texttospeech.googleapis.com/v1/text:synthesize',
     POLLINATIONS_URL: 'https://image.pollinations.ai/prompt',
@@ -84,12 +85,7 @@ window.AppConfig = {
             mode: 'nsfw'
         }
     },
-    STORAGE_KEYS: {
-        ENCRYPTION_SALT: 'rb_encryption_salt',
-        ENCRYPTION_UNLOCKED: 'rb_encryption_unlocked',
-        ENCRYPTION_PASSPHRASE: 'rb_session_passphrase'
-    },
-    CACHE_NAME: 'rubybox-v2',
+    CACHE_NAME: 'rubybox-v3',
     CACHE_ASSETS: [
         '/',
         '/index.html',
