@@ -8,29 +8,29 @@ window.AppMarkdown = {
             gfm: true
         });
         this.renderer = new marked.Renderer();
-        this.renderer.code = this.safeCodeBlock.bind(this);
+        this.renderer.code = this._safeCodeBlock.bind(this);
         marked.use({ renderer: this.renderer });
     },
 
-    safeCodeBlock(code, language) {
+    _safeCodeBlock(code, language) {
         const lang = language || '';
         const validLang = /^[a-zA-Z0-9_-]+$/.test(lang) ? lang : '';
-        return `<pre><code class="${validLang ? `language-${validLang}` : ''}">${this.escapeHtml(code)}</code></pre>`;
+        return `<pre><code class="${validLang ? `language-${validLang}` : ''}">${this._escapeHtml(code)}</code></pre>`;
     },
 
-    escapeHtml(text) {
+    _escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     },
 
     parse(markdown) {
-        if (typeof marked === 'undefined') return this.escapeHtml(markdown);
+        if (typeof marked === 'undefined') return this._escapeHtml(markdown);
         try {
             return marked.parse(markdown);
         } catch (e) {
             console.error('Markdown parse error:', e);
-            return this.escapeHtml(markdown);
+            return this._escapeHtml(markdown);
         }
     },
 
@@ -62,11 +62,65 @@ window.AppMarkdown = {
         return this.sanitize(html);
     },
 
-    render/g) || []).length;
-        if (openCount > closeCount) {
-            processed += '</think>';
+    renderWithThink(text) {
+        if (!text) return '';
+
+        const thinkOpen = '';
+
+        let result = '';
+        let lastIndex = 0;
+        let depth = 0;
+        let openIndex = 0;
+        let closeIndex = 0;
+
+        while (true) {
+            const nextOpen = text.indexOf(thinkOpen, lastIndex);
+            const nextClose = text.indexOf(thinkClose, lastIndex);
+
+            if (nextOpen === -1 && nextClose === -1) {
+                result += this.render(text.slice(lastIndex));
+                break;
+            }
+
+            if (nextOpen !== -1 && (nextClose === -1 || nextOpen < nextClose)) {
+                if (depth === 0) {
+                    result += this.render(text.slice(lastIndex, nextOpen));
+                    openIndex = nextOpen + thinkOpen.length;
+                    depth = 1;
+                    lastIndex = openIndex;
+                } else {
+                    depth++;
+                    lastIndex = nextOpen + thinkOpen.length;
+                }
+                continue;
+            }
+
+            if (nextClose !== -1 && (nextOpen === -1 || nextClose < nextOpen)) {
+                if (depth === 1) {
+                    const thinkContent = text.slice(lastIndex, nextClose).trim();
+                    const renderedThink = this.render(thinkContent);
+                    result += `<div class="think-content">${renderedThink}</div>`;
+                    lastIndex = nextClose + thinkClose.length;
+                    depth = 0;
+                } else if (depth > 1) {
+                    depth--;
+                    lastIndex = nextClose + thinkClose.length;
+                } else {
+                    result += this.render(text.slice(lastIndex, nextClose));
+                    lastIndex = nextClose + thinkClose.length;
+                }
+                continue;
+            }
         }
-        return this.render(processed);
+
+        if (depth > 0) {
+            const remaining = text.slice(openIndex).trim();
+            if (remaining) {
+                result += `<div class="think-content">${this.render(remaining)}</div>`;
+            }
+        }
+
+        return result;
     }
 };
 
