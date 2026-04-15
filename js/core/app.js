@@ -51,8 +51,8 @@ window.App = {
 
     clearAuthenticatedApp() {
         window.AppState.setUser(null);
-        if (window.AppState.clear) {
-            window.AppState.clear();
+        if (window.AppState.reset) {
+            window.AppState.reset();
         }
     },
 
