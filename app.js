@@ -53,12 +53,8 @@ window.App.setupEventListeners = function() {
             });
             e.target.classList.add('active');
             
-            window.App.currentMode = e.target.getAttribute('data-mode');
+            window.App.currentMode = DOMPurify.sanitize(e.target.getAttribute('data-mode'));
             window.App.applyModeSettings();
-            
-            window.App.state.activeCharacter = window.App.BASE_PERSONAS[window.App.currentMode];
-            window.App.renderActiveCharacter();
-            
             await window.App.loadCharacters();
             await window.App.loadConversations();
             await window.App.startNewChat();
@@ -128,7 +124,7 @@ window.App.setupEventListeners = function() {
             }
             
             window.App.UI.cancelEditCharBtn.click();
-            window.App.loadCharacters();
+            await window.App.loadCharacters();
         }
     });
 
@@ -136,13 +132,13 @@ window.App.setupEventListeners = function() {
     window.App.UI.narrativePrompt.addEventListener('change', window.App.debouncedSaveUserSettings);
     window.App.UI.apiKey.addEventListener('change', window.App.debouncedSaveUserSettings);
     
-    window.App.UI.tempSlider.addEventListener('input', (e) => { window.App.UI.tempVal.textContent = e.target.value; });
+    window.App.UI.tempSlider.addEventListener('input', (e) => { window.App.UI.tempVal.textContent = DOMPurify.sanitize(e.target.value); });
     window.App.UI.tempSlider.addEventListener('change', window.App.debouncedSaveUserSettings);
     
-    window.App.UI.ctxSlider.addEventListener('input', (e) => { window.App.UI.ctxVal.textContent = e.target.value; });
+    window.App.UI.ctxSlider.addEventListener('input', (e) => { window.App.UI.ctxVal.textContent = DOMPurify.sanitize(e.target.value); });
     window.App.UI.ctxSlider.addEventListener('change', window.App.debouncedSaveUserSettings);
 
-    window.App.UI.maxTokensSlider.addEventListener('input', (e) => { window.App.UI.maxTokensVal.textContent = e.target.value; });
+    window.App.UI.maxTokensSlider.addEventListener('input', (e) => { window.App.UI.maxTokensVal.textContent = DOMPurify.sanitize(e.target.value); });
     window.App.UI.maxTokensSlider.addEventListener('change', window.App.debouncedSaveUserSettings);
     
     window.App.UI.model.addEventListener('change', window.App.debouncedSaveUserSettings);
@@ -211,10 +207,6 @@ window.App.setupEventListeners = function() {
         }
     });
 
-    window.App.UI.generateImgBtn.addEventListener('click', () => {
-        window.App.generateImage();
-    });
-
     if (window.App.UI.exportBtn) {
         window.App.UI.exportBtn.addEventListener('click', window.App.exportChat);
     }
@@ -239,7 +231,7 @@ window.App.setupEventListeners = function() {
     window.App.UI.sendBtn.addEventListener('click', () => window.App.execute(false));
     window.App.UI.stopBtn.addEventListener('click', () => { if(window.App.controller) window.App.controller.abort(); VoiceManager.stopAll(); });
     
-    window.App.UI.newChatBtn.addEventListener('click', () => { if(window.App.user) window.App.startNewChat(); });
+    window.App.UI.newChatBtn.addEventListener('click', async () => { if(window.App.user) await window.App.startNewChat(); });
 
     window.App.UI.charsBtn.addEventListener('click', () => { if(window.App.user) { window.App.UI.sidebar.classList.remove('show'); window.App.UI.overlay.classList.remove('show'); window.App.UI.charModal.classList.remove('hidden'); }});
     window.App.UI.closeCharModal.addEventListener('click', () => window.App.UI.charModal.classList.add('hidden'));
@@ -270,9 +262,6 @@ window.App.initialize = async function(authenticatedUser) {
     await window.App.loadUserSettings();
     await window.App.loadCharacters();
     await window.App.loadConversations();
-
-    window.App.state.activeCharacter = window.App.BASE_PERSONAS[window.App.currentMode || 'chat'];
-    window.App.renderActiveCharacter();
 
     if (!window.App.currentConversationId) await window.App.startNewChat();
     VoiceManager.init(window.App.handleTranscriptionSubmit, window.App.handleVoiceStateChange);
