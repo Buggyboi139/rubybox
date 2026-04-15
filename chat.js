@@ -16,13 +16,13 @@ window.App.extractImageFromContent = function(content) {
 };
 
 window.App.generateChatTitle = async function(firstPrompt, convId) {
-    if (!window.App.UI.apiKey.value) return;
+    if (!window.App.UI.geminiApiKey.value) return; 
     try {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
             method: "POST",
-            headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
+            headers: { "Authorization": `Bearer ${window.App.UI.geminiApiKey.value}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-                model: "google/gemini-2.5-flash",
+                model: "gemini-2.5-flash",
                 messages: [{ role: "user", content: `Summarize this into a 3-5 word title. Only output the title: ${firstPrompt}` }],
                 stream: false
             })
@@ -88,6 +88,7 @@ window.App.execute = async function(fromVoice = false) {
                     window.App.showToast("Image upload failed.", "error");
                     window.App.UI.stopBtn.classList.add('hidden');
                     window.App.UI.sendBtn.classList.remove('hidden');
+                    window.App.isExecuting = false;
                     return;
                 }
                 
@@ -117,6 +118,7 @@ window.App.execute = async function(fromVoice = false) {
                     window.App.showToast("Failed to create chat", "error");
                     window.App.UI.stopBtn.classList.add('hidden');
                     window.App.UI.sendBtn.classList.remove('hidden');
+                    window.App.isExecuting = false;
                     return;
                 }
                 window.App.currentConversationId = newChat.id;
@@ -163,36 +165,20 @@ window.App.execute = async function(fromVoice = false) {
         const messages = [{ role: "system", content: systemContent }, ...recent];
         
         let targetModel = window.App.UI.model.value;
-        let routerBadge = "";
+        let apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+        let usedApiKey = window.App.UI.apiKey.value;
 
-        if (window.App.currentMode === 'code' && messages.length > 1) {
-            const routeInput = typeof messages[messages.length - 1].content === 'string' ? messages[messages.length - 1].content : JSON.stringify(messages[messages.length - 1].content);
-            try {
-                const routeRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                    method: "POST",
-                    headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        model: "google/gemini-2.5-flash",
-                        messages: [{ role: "system", content: "You are a code routing node. Evaluate the user prompt and select the best model from this exact list: 'anthropic/claude-opus-4.6', 'anthropic/claude-sonnet-4.6', 'deepseek/deepseek-v3.2'. Output ONLY the exact model string." }, { role: "user", content: routeInput }],
-                        temperature: 0
-                    })
-                });
-                if (routeRes.ok) {
-                    const rData = await routeRes.json();
-                    targetModel = rData.choices[0].message.content.replace(/["']/g, "").trim();
-                    if (!['anthropic/claude-opus-4.6', 'anthropic/claude-sonnet-4.6', 'deepseek/deepseek-v3.2'].includes(targetModel)) {
-                        targetModel = 'anthropic/claude-sonnet-4.6';
-                    }
-                    routerBadge = `**[Routed via Gemini Flash to: ${targetModel}]**\n\n`;
-                }
-            } catch(e) {
-                console.error("Routing error", e);
-            }
+        if (targetModel.startsWith('gemini')) {
+            apiUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+            usedApiKey = window.App.UI.geminiApiKey.value;
+            if (!usedApiKey) throw new Error("Google AI Studio key is required for Gemini models.");
+        } else if (!usedApiKey) {
+            throw new Error("OpenRouter API key is required for this model.");
         }
 
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const response = await fetch(apiUrl, {
             method: "POST",
-            headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
+            headers: { "Authorization": `Bearer ${usedApiKey}`, "Content-Type": "application/json" },
             signal: window.App.controller.signal,
             body: JSON.stringify({ model: targetModel, temperature: parseFloat(window.App.UI.tempSlider.value), max_tokens: maxTokens, messages: messages, stream: true })
         });
@@ -201,7 +187,7 @@ window.App.execute = async function(fromVoice = false) {
         
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let fullText = routerBadge;
+        let fullText = "";
         let buffer = "";
         const box = window.App.addMessage('assistant', fullText, true);
         let lastRenderTime = 0;
