@@ -109,17 +109,27 @@
                     </select>
                 </div>
                 <div class="mt-15">
-                    <input type="password" id="gemini-api-key" placeholder="Google AI Studio Key" class="glass-input mb-10">
-                    <input type="password" id="api-key" placeholder="OpenRouter Key" class="glass-input mb-15">
-                    <select id="model-select" class="glass-input select-styled mb-15">
-                        <option value="deepseek/deepseek-v3.2" selected>DeepSeek V3.2 (Daily & Roleplay)</option>
-                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Heavyweight)</option>
-                        <option value="anthropic/claude-opus-4.6">Claude Opus 4.6 (Nuclear Option)</option>
-                    </select>
-                    <select id="voice-mode" class="glass-input select-styled mb-15">
-                        <option value="local" selected>Voice: Local (Transformers)</option>
-                        <option value="native">Voice: Native (Browser API)</option>
-                    </select>
+                    <div class="input-group mb-15">
+                        <label class="form-label">OpenRouter API Key</label>
+                        <input type="password" id="api-key" placeholder="sk-or-v1-..." class="glass-input">
+                    </div>
+                    <div class="input-group mb-15">
+                        <label class="form-label">Language Model</label>
+                        <select id="model-select" class="glass-input select-styled">
+                            <option value="deepseek/deepseek-v3.2" selected>DeepSeek V3.2 (Daily & Roleplay)</option>
+                            <option value="anthropic/claude-opus-4.6">Claude Opus 4.6 (Nuclear Option)</option>
+                            <option value="anthropic/claude-sonnet-4.6">Claude Sonnet 4.6 (Iterative & Projects)</option>
+                            <option value="minimax/minimax-m2.7">MiniMax M2.7 (Agentic Workflows)</option>
+                            <option value="google/gemini-2.5-pro">Gemini 2.5 Pro (Heavyweight)</option>
+                        </select>
+                    </div>
+                    <div class="input-group mb-15">
+                        <label class="form-label">Voice Pipeline</label>
+                        <select id="voice-mode" class="glass-input select-styled">
+                            <option value="local" selected>Local (Transformers)</option>
+                            <option value="native">Native (Browser API)</option>
+                        </select>
+                    </div>
                     <div class="slider-group">
                         <label for="temp-slider">Temperature: <span id="temp-val">0.7</span></label>
                         <input type="range" id="temp-slider" min="0" max="2" step="0.1" value="0.7">
