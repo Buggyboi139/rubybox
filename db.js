@@ -8,9 +8,9 @@ window.App.startNewChat = async function() {
         el.classList.remove('active');
     });
 
-    const currentMode = window.App.currentMode || 'chat';
-    const favChar = window.App.state.characters.find(c => c.is_favorite && c.mode === currentMode);
-    window.App.state.activeCharacter = favChar || window.App.BASE_PERSONAS[currentMode];
+    if (!window.App.state.activeCharacter) {
+        window.App.state.activeCharacter = window.App.BASE_PERSONAS[window.App.currentMode || 'chat'];
+    }
     window.App.renderActiveCharacter();
 
     if (window.App.state.activeCharacter) {
@@ -134,7 +134,6 @@ window.App.loadCharacters = async function() {
         .select('*')
         .eq('user_id', window.App.user.id)
         .eq('mode', currentMode)
-        .order('is_favorite', { ascending: false })
         .order('created_at', { ascending: false });
     window.App.state.characters = data || [];
     window.App.renderCharacters();
