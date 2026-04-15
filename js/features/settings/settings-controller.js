@@ -109,8 +109,14 @@ window.AppFeaturesSettings = {
 
             const isNew = !window.AppState.get('encryptionSalt');
 
+            if (!pass) {
+                errorEl.textContent = 'Passphrase is required';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
             if (isNew) {
-                if (!pass || pass.length < 8) {
+                if (pass.length < 8) {
                     errorEl.textContent = 'Passphrase must be at least 8 characters';
                     errorEl.classList.remove('hidden');
                     return;
@@ -120,29 +126,29 @@ window.AppFeaturesSettings = {
                     errorEl.classList.remove('hidden');
                     return;
                 }
+                
                 await window.AppConfigLoader.ensureEncryptionSalt();
-            }
-
-            if (!pass) {
-                errorEl.textContent = 'Passphrase is required';
-                errorEl.classList.remove('hidden');
-                return;
-            }
-
-            const success = await window.AppConfigLoader.unlockSecrets(pass);
-            if (success) {
-                window.AppToasts.show('Secrets unlocked');
+                window.AppState.set('sessionPassphrase', pass);
+                window.AppToasts.show('Passphrase set successfully');
                 overlay.remove();
-                if (target === 'api') {
-                    const ui = window.AppUI.get();
-                    if (ui.apiKey.value) this.saveApiKey(ui.apiKey.value);
-                } else if (target === 'tts') {
-                    const ui = window.AppUI.get();
-                    if (ui.googleTtsKey.value) this.saveTtsKey(ui.googleTtsKey.value);
-                }
+
+                const ui = window.AppUI.get();
+                if (target === 'api' && ui.apiKey.value) this.saveApiKey(ui.apiKey.value);
+                if (target === 'tts' && ui.googleTtsKey.value) this.saveTtsKey(ui.googleTtsKey.value);
+                
             } else {
-                errorEl.textContent = 'Invalid passphrase or no encrypted secrets found';
-                errorEl.classList.remove('hidden');
+                const success = await window.AppConfigLoader.unlockSecrets(pass);
+                if (success) {
+                    window.AppToasts.show('Secrets unlocked');
+                    overlay.remove();
+                    
+                    const ui = window.AppUI.get();
+                    if (target === 'api' && ui.apiKey.value) this.saveApiKey(ui.apiKey.value);
+                    if (target === 'tts' && ui.googleTtsKey.value) this.saveTtsKey(ui.googleTtsKey.value);
+                } else {
+                    errorEl.textContent = 'Invalid passphrase or no encrypted secrets found';
+                    errorEl.classList.remove('hidden');
+                }
             }
         });
     }
