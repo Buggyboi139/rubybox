@@ -322,19 +322,21 @@ window.AppEvents = {
             try {
                 const email = ui.authEmail.value;
                 const pass = ui.authPassword.value;
-                await window.AppAuthService.login(email, pass);
+                const user = await window.AppAuthService.login(email, pass);
                 window.AppModals.close('authModal');
+                if (window.App) await window.App.hydrateAuthenticatedApp(user);
             } catch (e) {
                 window.AppToasts.show(e.message, 'error');
             }
         });
-        
+
         ui.authSignupBtn.addEventListener('click', async () => {
             try {
                 const email = ui.authEmail.value;
                 const pass = ui.authPassword.value;
-                await window.AppAuthService.signup(email, pass);
+                const user = await window.AppAuthService.signup(email, pass);
                 window.AppModals.close('authModal');
+                if (window.App) await window.App.hydrateAuthenticatedApp(user);
             } catch (e) {
                 window.AppToasts.show(e.message, 'error');
             }
