@@ -11,7 +11,10 @@ window.AppConfigLoader = {
                 .single();
 
             if (error) {
-                console.error('Failed to load settings:', error);
+                if (error.code === 'PGRST116') {
+                    window.AppState.set('settings', {});
+                    return {};
+                }
                 return null;
             }
 
@@ -19,7 +22,6 @@ window.AppConfigLoader = {
             window.AppState.set('encryptionSalt', data.encryption_salt);
             return data;
         } catch (e) {
-            console.error('Settings load error:', e);
             return null;
         }
     },
@@ -28,7 +30,9 @@ window.AppConfigLoader = {
         const user = window.AppState.get('user');
         if (!user) return { error: new Error('No authenticated user') };
 
+        const currentSettings = window.AppState.get('settings') || {};
         const payload = {
+            ...currentSettings,
             user_id: user.id,
             ...settings
         };
@@ -43,10 +47,9 @@ window.AppConfigLoader = {
                 return { error };
             }
 
-            window.AppState.set('settings', { ...window.AppState.get('settings'), ...settings });
+            window.AppState.set('settings', payload);
             return { error: null };
         } catch (e) {
-            console.error('Settings save error:', e);
             return { error: e };
         }
     },
@@ -55,7 +58,6 @@ window.AppConfigLoader = {
         let salt = window.AppState.get('encryptionSalt');
         if (!salt) {
             salt = await window.AppCrypto.generateSalt();
-            const settings = window.AppState.get('settings') || {};
             await this.saveUserSettings({ encryption_salt: salt });
             window.AppState.set('encryptionSalt', salt);
         }
@@ -132,7 +134,6 @@ window.AppConfigLoader = {
             window.AppState.set('sessionPassphrase', passphrase);
             return true;
         } catch (e) {
-            console.error('Decryption failed:', e);
             return false;
         }
     },
