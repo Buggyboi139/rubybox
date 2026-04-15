@@ -109,32 +109,12 @@
                     </select>
                 </div>
                 <div class="mt-15">
+                    <input type="password" id="gemini-api-key" placeholder="Google AI Studio Key" class="glass-input mb-10">
                     <input type="password" id="api-key" placeholder="OpenRouter Key" class="glass-input mb-15">
                     <select id="model-select" class="glass-input select-styled mb-15">
-                        <optgroup label="Anthropic">
-                            <option value="anthropic/claude-opus-4.6">Claude Opus 4.6</option>
-                            <option value="anthropic/claude-sonnet-4.6">Claude Sonnet 4.6</option>
-                        </optgroup>
-                        <optgroup label="Google">
-                            <option value="google/gemini-3-flash-preview">Gemini 3 Flash</option>
-                            <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
-                        </optgroup>
-                        <optgroup label="DeepSeek">
-                            <option value="deepseek/deepseek-v3.2" selected>DeepSeek V3.2</option>
-                        </optgroup>
-                        <optgroup label="MiniMax">
-                            <option value="minimax/minimax-m2.7">MiniMax M2.7</option>
-                            <option value="minimax/minimax-m2.5">MiniMax M2.5</option>
-                        </optgroup>
-                        <optgroup label="Xiaomi">
-                            <option value="xiaomi/mimo-v2-pro">MiMo-V2-Pro</option>
-                        </optgroup>
-                        <optgroup label="NVIDIA">
-                            <option value="nvidia/nemotron-3-super">Nemotron 3 Super</option>
-                        </optgroup>
-                        <optgroup label="xAI">
-                            <option value="x-ai/grok-4.1-fast">Grok 4.1 Fast</option>
-                        </optgroup>
+                        <option value="deepseek/deepseek-v3.2" selected>DeepSeek V3.2 (Daily & Roleplay)</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Heavyweight)</option>
+                        <option value="anthropic/claude-opus-4.6">Claude Opus 4.6 (Nuclear Option)</option>
                     </select>
                     <select id="voice-mode" class="glass-input select-styled mb-15">
                         <option value="local" selected>Voice: Local (Transformers)</option>
