@@ -56,7 +56,6 @@ window.AuthManager = (() => {
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
-    if(window.App && window.App.initUI) window.App.initUI();
     window.AuthManager.checkSession().then(user => {
         if(window.App) window.App.initialize(user);
     });
