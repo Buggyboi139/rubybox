@@ -1,3 +1,20 @@
+window.App.extractTextFromContent = function(content) {
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+        const txtObj = content.find(c => c.type === 'text');
+        return txtObj ? txtObj.text : '';
+    }
+    return '';
+};
+
+window.App.extractImageFromContent = function(content) {
+    if (Array.isArray(content)) {
+        const imgObj = content.find(c => c.type === 'image_url');
+        return imgObj ? imgObj.image_url.url : null;
+    }
+    return null;
+};
+
 window.App.showToast = function(msg, type='info') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
