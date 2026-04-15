@@ -322,9 +322,8 @@ window.AppEvents = {
             try {
                 const email = ui.authEmail.value;
                 const pass = ui.authPassword.value;
-                const user = await window.AppAuthService.login(email, pass);
+                await window.AppAuthService.login(email, pass);
                 window.AppModals.close('authModal');
-                if (window.App) await window.App.hydrateAuthenticatedApp(user);
             } catch (e) {
                 window.AppToasts.show(e.message, 'error');
             }
@@ -334,9 +333,8 @@ window.AppEvents = {
             try {
                 const email = ui.authEmail.value;
                 const pass = ui.authPassword.value;
-                const user = await window.AppAuthService.signup(email, pass);
+                await window.AppAuthService.signup(email, pass);
                 window.AppModals.close('authModal');
-                if (window.App) await window.App.hydrateAuthenticatedApp(user);
             } catch (e) {
                 window.AppToasts.show(e.message, 'error');
             }
