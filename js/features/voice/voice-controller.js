@@ -148,14 +148,14 @@ window.AppVoiceManager = {
     },
 
     receiveDelta(delta) {
-        if (delta')) {
-                this.isThinking = false;
-                const parts = delta.split('');
-                delta = parts.length > 1 ? parts[1] : '';
-            } else {
-                return;
-            }
+        if (delta.includes('</think>')) {
+            this.isThinking = false;
+            const parts = delta.split('</think>');
+            delta = parts.length > 1 ? parts[1] : '';
+        } else if (this.isThinking) {
+            return;
         }
+        
         if (!delta) return;
 
         this.sentenceBuffer += delta;
