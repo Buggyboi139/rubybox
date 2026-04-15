@@ -39,6 +39,11 @@ window.App = {
         await window.AppConfigLoader.loadUserSettings();
         window.AppConfigLoader.applyModeSettings();
 
+        const settings = window.AppState.get('settings');
+        if (settings && (settings.encrypted_api_key || settings.encrypted_google_tts_key) && !window.AppState.get('sessionPassphrase')) {
+            window.AppFeaturesSettings._showPassphraseModal('unlock');
+        }
+
         await window.AppFeaturesPersonas.loadCharacters();
         await window.AppFeaturesChat.loadConversationList();
         await window.AppFeaturesChat.startNewChat();
@@ -54,6 +59,9 @@ window.App = {
         if (window.AppState.reset) {
             window.AppState.reset();
         }
+        const ui = window.AppUI.get();
+        if (ui.apiKey) ui.apiKey.value = '';
+        if (ui.googleTtsKey) ui.googleTtsKey.value = '';
     },
 
     _handleTranscriptionSubmit(text) {
