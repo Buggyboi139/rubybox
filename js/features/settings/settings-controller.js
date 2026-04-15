@@ -34,6 +34,14 @@ window.AppFeaturesSettings = {
     },
 
     async saveApiKey(value) {
+        const user = window.AppState.get('user');
+        if (!user) {
+            window.AppToasts.show('Please sign in to save API keys', 'error');
+            const ui = window.AppUI.get();
+            if (ui.apiKey) ui.apiKey.value = '';
+            return;
+        }
+
         if (!value || !value.trim()) return;
 
         const hasPassphrase = !!window.AppState.get('sessionPassphrase');
@@ -52,6 +60,14 @@ window.AppFeaturesSettings = {
     },
 
     async saveTtsKey(value) {
+        const user = window.AppState.get('user');
+        if (!user) {
+            window.AppToasts.show('Please sign in to save TTS keys', 'error');
+            const ui = window.AppUI.get();
+            if (ui.googleTtsKey) ui.googleTtsKey.value = '';
+            return;
+        }
+
         if (!value || !value.trim()) return;
 
         const hasPassphrase = !!window.AppState.get('sessionPassphrase');
@@ -143,8 +159,16 @@ window.AppFeaturesSettings = {
                     overlay.remove();
                     
                     const ui = window.AppUI.get();
-                    if (target === 'api' && ui.apiKey.value) this.saveApiKey(ui.apiKey.value);
-                    if (target === 'tts' && ui.googleTtsKey.value) this.saveTtsKey(ui.googleTtsKey.value);
+                    if (target === 'api' && ui.apiKey.value) {
+                        this.saveApiKey(ui.apiKey.value);
+                    } else if (target === 'tts' && ui.googleTtsKey.value) {
+                        this.saveTtsKey(ui.googleTtsKey.value);
+                    } else {
+                        const decApi = window.AppState.get('decryptedApiKey');
+                        const decTts = window.AppState.get('decryptedTtsKey');
+                        if (decApi && ui.apiKey) ui.apiKey.value = decApi;
+                        if (decTts && ui.googleTtsKey) ui.googleTtsKey.value = decTts;
+                    }
                 } else {
                     errorEl.textContent = 'Invalid passphrase or no encrypted secrets found';
                     errorEl.classList.remove('hidden');
