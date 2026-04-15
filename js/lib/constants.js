@@ -1,6 +1,6 @@
 window.AppConfig = {
     SUPABASE_URL: 'https://anpdzypxekvqprtaneol.supabase.co',
-    SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+    SUPABASE_ANON_KEY: 'sb_publishable_q-8Ja0YXlEm89Qv86v4V0g_I5xcDapT',
     OPENROUTER_API_URL: 'https://openrouter.ai/api/v1/chat/completions',
     GOOGLE_TTS_URL: 'https://texttospeech.googleapis.com/v1/text:synthesize',
     POLLINATIONS_URL: 'https://image.pollinations.ai/prompt',
