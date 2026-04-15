@@ -159,6 +159,10 @@ window.App.setupEventListeners = function() {
     });
     window.App.UI.clearImgBtn.addEventListener('click', () => { window.App.attachedImageBase64 = null; window.App.UI.imagePreview.src = ''; window.App.UI.imagePreviewContainer.classList.add('hidden'); window.App.UI.imageUpload.value = ''; });
 
+    window.App.UI.generateImgBtn.addEventListener('click', () => {
+        window.App.generateImage();
+    });
+
     window.App.UI.newCharAvatarBtn.addEventListener('click', () => window.App.UI.newCharAvatarFile.click());
     window.App.UI.newCharAvatarFile.addEventListener('change', (e) => {
         const file = e.target.files[0];
