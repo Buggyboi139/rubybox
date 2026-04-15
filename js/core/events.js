@@ -308,6 +308,10 @@ window.AppEvents = {
 
         if (ui.unlockKeysBtn) {
             ui.unlockKeysBtn.addEventListener('click', () => {
+                if (!window.AppState.get('user')) {
+                    window.AppToasts.show('Please sign in first.', 'error');
+                    return;
+                }
                 window.AppFeaturesSettings._showPassphraseModal('unlock');
             });
         }
