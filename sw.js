@@ -6,7 +6,6 @@ const ASSETS = [
     '/globals.js',
     '/supabase-client.js',
     '/db.js',
-    '/ui.js',
     '/voice.js',
     '/chat.js',
     '/app.js',
