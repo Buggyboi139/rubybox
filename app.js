@@ -55,6 +55,10 @@ window.App.setupEventListeners = function() {
             
             window.App.currentMode = e.target.getAttribute('data-mode');
             window.App.applyModeSettings();
+            
+            window.App.state.activeCharacter = window.App.BASE_PERSONAS[window.App.currentMode];
+            window.App.renderActiveCharacter();
+            
             await window.App.loadCharacters();
             await window.App.loadConversations();
             await window.App.startNewChat();
@@ -131,7 +135,6 @@ window.App.setupEventListeners = function() {
     window.App.UI.sysPrompt.addEventListener('change', window.App.debouncedSaveUserSettings);
     window.App.UI.narrativePrompt.addEventListener('change', window.App.debouncedSaveUserSettings);
     window.App.UI.apiKey.addEventListener('change', window.App.debouncedSaveUserSettings);
-    window.App.UI.geminiApiKey.addEventListener('change', window.App.debouncedSaveUserSettings);
     
     window.App.UI.tempSlider.addEventListener('input', (e) => { window.App.UI.tempVal.textContent = e.target.value; });
     window.App.UI.tempSlider.addEventListener('change', window.App.debouncedSaveUserSettings);
@@ -264,6 +267,9 @@ window.App.initialize = async function(authenticatedUser) {
     await window.App.loadCharacters();
     await window.App.loadConversations();
 
+    window.App.state.activeCharacter = window.App.BASE_PERSONAS[window.App.currentMode || 'chat'];
+    window.App.renderActiveCharacter();
+
     if (!window.App.currentConversationId) await window.App.startNewChat();
     VoiceManager.init(window.App.handleTranscriptionSubmit, window.App.handleVoiceStateChange);
 };
@@ -274,7 +280,6 @@ window.App.loadUserSettings = async function() {
     if (data) {
         window.App.settingsData = data;
         if (data.encrypted_api_key) window.App.UI.apiKey.value = data.encrypted_api_key;
-        if (data.gemini_api_key) window.App.UI.geminiApiKey.value = data.gemini_api_key;
         if (data.google_tts_key) window.App.UI.googleTtsKey.value = data.google_tts_key;
         if (data.google_tts_voice) window.App.UI.googleVoiceSelect.value = data.google_tts_voice;
         if (data.temperature) { window.App.UI.tempSlider.value = data.temperature; window.App.UI.tempVal.textContent = data.temperature; }
@@ -292,7 +297,6 @@ window.App.saveUserSettings = async function() {
     const settings = {
         user_id: window.App.user.id,
         encrypted_api_key: window.App.UI.apiKey.value,
-        gemini_api_key: window.App.UI.geminiApiKey.value,
         google_tts_key: window.App.UI.googleTtsKey.value,
         google_tts_voice: window.App.UI.googleVoiceSelect.value,
         temperature: parseFloat(window.App.UI.tempSlider.value),
