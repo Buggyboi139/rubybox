@@ -416,6 +416,91 @@ window.App.generateChatTitle = async function(firstPrompt, convId) {
     } catch(e) {}
 };
 
+window.App.generateImage = async function() {
+    if (!window.App.user) {
+        window.App.showToast("Please sign in first.", "error");
+        return;
+    }
+    if (window.App.isExecuting) return;
+    
+    const promptText = window.App.UI.prompt.value.trim();
+    if (!promptText) {
+        window.App.showToast("Enter a prompt to generate an image.", "error");
+        return;
+    }
+
+    window.App.isExecuting = true;
+    window.App.UI.prompt.value = "";
+    window.App.UI.prompt.style.height = '50px';
+    window.App.UI.tokenCounter.innerText = "~0 tokens";
+    window.App.UI.stopBtn.classList.remove('hidden');
+    window.App.UI.sendBtn.classList.add('hidden');
+
+    const tempId = 'temp-' + Date.now();
+    window.App.addMessage('assistant', "Conjuring image...", false, tempId);
+
+    try {
+        if (!window.App.currentConversationId) {
+            const title = promptText.substring(0, 30).trim() + "...";
+            const currentMode = window.App.currentMode || 'chat';
+            const charId = (window.App.state.activeCharacter && !window.App.state.activeCharacter.id.startsWith('base-')) ? window.App.state.activeCharacter.id : null;
+            const { data: newChat, error: chatError } = await window.supabaseClient.from('conversations').insert([{ 
+                user_id: window.App.user.id, title: title, mode: currentMode, character_id: charId 
+            }]).select().single();
+            if (chatError) throw chatError;
+            window.App.currentConversationId = newChat.id;
+            window.App.loadConversations();
+        }
+
+        const { data: userMsg, error: msgError } = await window.supabaseClient.from('messages').insert([{ 
+            conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: 'user', content: promptText 
+        }]).select().single();
+        if (msgError) throw msgError;
+        
+        window.App.state.history.push({ role: 'user', content: promptText, id: userMsg.id });
+        window.App.addMessage('user', promptText, false, userMsg.id);
+
+        const masterTags = "masterpiece, highly detailed, raw photo, 8k resolution, ";
+        const encodedPrompt = encodeURIComponent(masterTags + promptText);
+        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true`;
+
+        const imgRes = await fetch(imageUrl);
+        if (!imgRes.ok) throw new Error("Image generation failed.");
+        const imgBlob = await imgRes.blob();
+        
+        const fileName = `gen_${window.App.user.id}_${Date.now()}.jpg`;
+        const { error: uploadError } = await window.supabaseClient.storage.from('chat_images').upload(fileName, imgBlob);
+        
+        let finalUrl = imageUrl;
+        if (!uploadError) {
+            const { data: urlData } = window.supabaseClient.storage.from('chat_images').getPublicUrl(fileName);
+            finalUrl = urlData.publicUrl;
+        }
+
+        const mdContent = `![Generated Image](${finalUrl})`;
+
+        const tempNode = document.querySelector(`[data-id="${tempId}"]`);
+        if (tempNode) tempNode.remove();
+
+        const { data: aiData, error: aiError } = await window.supabaseClient.from('messages').insert([{ 
+            conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: 'assistant', content: mdContent 
+        }]).select().single();
+        if (aiError) throw aiError;
+        
+        window.App.state.history.push({ role: 'assistant', content: mdContent, id: aiData.id });
+        window.App.addMessage('assistant', mdContent, false, aiData.id);
+
+    } catch (e) {
+        window.App.showToast(`Generation Error: ${e.message}`, "error");
+        const tempNode = document.querySelector(`[data-id="${tempId}"]`);
+        if (tempNode) tempNode.remove();
+    } finally {
+        window.App.isExecuting = false;
+        window.App.UI.stopBtn.classList.add('hidden');
+        window.App.UI.sendBtn.classList.remove('hidden');
+    }
+};
+
 window.App.execute = async function(fromVoice = false) {
     if (!window.App.user) {
         window.App.showToast("Please sign in first.", "error");
@@ -433,12 +518,6 @@ window.App.execute = async function(fromVoice = false) {
         const input = window.App.UI.prompt.value.trim();
         if (!input && window.App.state.history.length === 0) return;
         
-        const isImageCommand = input.toLowerCase().startsWith('/image ') || input.toLowerCase().startsWith('/imagine ');
-        let cleanInput = input;
-        if (isImageCommand) {
-            cleanInput = input.replace(/^\/(image|imagine)\s+/i, '').trim();
-        }
-
         if (input || window.App.attachedImageBase64) {
             let contentPayload = input;
             if (window.App.attachedImageBase64) {
@@ -453,6 +532,7 @@ window.App.execute = async function(fromVoice = false) {
                     window.App.isExecuting = false;
                     return;
                 }
+                
                 contentPayload.push({ type: "image_url", image_url: { url: finalImgUrl } });
             }
 
@@ -507,71 +587,6 @@ window.App.execute = async function(fromVoice = false) {
         }
         
         window.App.controller = new AbortController();
-        let usedApiKey = window.App.UI.apiKey.value;
-        if (!usedApiKey) throw new Error("OpenRouter API key is required.");
-
-        if (isImageCommand) {
-            window.App.UI.stopBtn.classList.remove('hidden');
-            window.App.UI.sendBtn.classList.add('hidden');
-            
-            const tempId = 'temp-' + Date.now();
-            window.App.addMessage('assistant', "Generating image...", false, tempId);
-
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
-                headers: { "Authorization": `Bearer ${usedApiKey}`, "Content-Type": "application/json" },
-                signal: window.App.controller.signal,
-                body: JSON.stringify({
-                    model: "google/gemini-2.5-flash-image",
-                    messages: [{ role: "user", content: cleanInput }],
-                    stream: false
-                })
-            });
-
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json();
-            const replyText = data.choices[0].message.content;
-
-            let imgUrlMatch = replyText.match(/!\[.*?\]\((.*?)\)/) || replyText.match(/(https?:\/\/[^\s)]+)/);
-            let rawUrl = imgUrlMatch ? imgUrlMatch[1] : replyText;
-            let finalUrl = rawUrl;
-
-            try {
-                let imgBlob;
-                if (rawUrl.startsWith('data:image')) {
-                    const res = await fetch(rawUrl);
-                    imgBlob = await res.blob();
-                } else {
-                    const imgRes = await fetch(rawUrl);
-                    imgBlob = await imgRes.blob();
-                }
-                const fileName = `gen_${window.App.user.id}_${Date.now()}.jpg`;
-                const { error: uploadError } = await window.supabaseClient.storage.from('chat_images').upload(fileName, imgBlob);
-                if (!uploadError) {
-                    const { data: urlData } = window.supabaseClient.storage.from('chat_images').getPublicUrl(fileName);
-                    finalUrl = urlData.publicUrl;
-                }
-            } catch(e) {}
-
-            const mdContent = `![Generated Image](${finalUrl})`;
-            const tempNode = document.querySelector(`[data-id="${tempId}"]`);
-            if (tempNode) tempNode.remove();
-
-            const { data: aiData, error: aiError } = await window.supabaseClient.from('messages').insert([{ conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: 'assistant', content: mdContent }]).select().single();
-            if (aiError) throw aiError;
-            
-            if(aiData) {
-                window.App.state.history.push({ role: 'assistant', content: mdContent, id: aiData.id });
-                window.App.addMessage('assistant', mdContent, false, aiData.id);
-            }
-            
-            window.App.UI.stopBtn.classList.add('hidden');
-            window.App.UI.sendBtn.classList.remove('hidden');
-            window.App.controller = null;
-            window.App.isExecuting = false;
-            return;
-        }
-
         if (!fromVoice) {
             window.App.UI.stopBtn.classList.remove('hidden');
             window.App.UI.sendBtn.classList.add('hidden');
@@ -586,6 +601,11 @@ window.App.execute = async function(fromVoice = false) {
         
         let targetModel = window.App.UI.model.value || "deepseek/deepseek-v3.2";
         let apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+        let usedApiKey = window.App.UI.apiKey.value;
+
+        if (!usedApiKey) {
+            throw new Error("OpenRouter API key is required.");
+        }
 
         const response = await fetch(apiUrl, {
             method: "POST",
