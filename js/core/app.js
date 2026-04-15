@@ -1,23 +1,38 @@
 window.App = {
-    initialized: false,
+    isBootstrapped: false,
 
-    async initialize(authenticatedUser) {
-        if (this.initialized) return;
-        this.initialized = true;
+    async bootstrap() {
+        if (this.isBootstrapped) return;
 
         window.AppUI.init();
+        window.AppEvents.init();
 
-        if (!window.AppSupabase.isReady()) {
-            window.AppSupabase.init(
-                window.AppConfig.SUPABASE_URL,
-                window.AppConfig.SUPABASE_ANON_KEY
-            );
+        if (window.AppSupabase && window.AppSupabase.isReady) {
+            await window.AppSupabase.isReady();
         }
 
-        window.AppState.setUser(authenticatedUser);
-        window.AppState.set('currentMode', 'chat');
+        this.isBootstrapped = true;
 
-        if (!authenticatedUser) return;
+        const session = await window.AuthService.checkSession();
+
+        if (session && session.user) {
+            await this.hydrateAuthenticatedApp(session.user);
+        }
+
+        if (window.AppSupabase && window.AppSupabase.client) {
+            window.AppSupabase.client.auth.onAuthStateChange((event, session) => {
+                if (event === 'SIGNED_IN' && session) {
+                    this.hydrateAuthenticatedApp(session.user);
+                } else if (event === 'SIGNED_OUT') {
+                    this.clearAuthenticatedApp();
+                }
+            });
+        }
+    },
+
+    async hydrateAuthenticatedApp(user) {
+        window.AppState.setUser(user);
+        window.AppState.set('currentMode', 'chat');
 
         await window.AppConfigLoader.loadUserSettings();
         window.AppConfigLoader.applyModeSettings();
@@ -26,12 +41,17 @@ window.App = {
         await window.AppFeaturesChat.loadConversationList();
         await window.AppFeaturesChat.startNewChat();
 
-        window.AppEvents.init();
-
         window.AppVoiceManager.init(
             (text) => this._handleTranscriptionSubmit(text),
             (status) => window.AppChatView.renderSystemMessage(`Voice: ${status}`)
         );
+    },
+
+    clearAuthenticatedApp() {
+        window.AppState.setUser(null);
+        if (window.AppState.clear) {
+            window.AppState.clear();
+        }
     },
 
     _handleTranscriptionSubmit(text) {
@@ -51,3 +71,7 @@ window.App = {
         window.AppToasts.show(msg, type);
     }
 };
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.App.bootstrap();
+});
