@@ -84,13 +84,5 @@ window.AppConfig = {
             mode: 'nsfw'
         }
     },
-    CACHE_NAME: 'rubybox-v3',
-    CACHE_ASSETS: [
-        '/',
-        '/index.html',
-        '/styles.css',
-        '/site.webmanifest',
-        '/icons/favicon.svg',
-        '/icons/apple-touch-icon.png'
-    ]
+    CACHE_NAME: 'rubybox-v4'
 };
