@@ -31,8 +31,11 @@ window.AppConfigLoader = {
         if (!user) return { error: new Error('No authenticated user') };
 
         const currentSettings = window.AppState.get('settings') || {};
+        
+        const { id, created_at, updated_at, ...cleanSettings } = currentSettings;
+
         const payload = {
-            ...currentSettings,
+            ...cleanSettings,
             user_id: user.id,
             ...settings
         };
@@ -43,13 +46,15 @@ window.AppConfigLoader = {
                 .upsert(payload, { onConflict: 'user_id' });
 
             if (error) {
-                window.AppToasts.show('Failed to save settings', 'error');
+                console.error('Supabase Upsert Error:', error);
+                window.AppToasts.show('Database rejected save: ' + error.message, 'error');
                 return { error };
             }
 
             window.AppState.set('settings', payload);
             return { error: null };
         } catch (e) {
+            console.error('Critical Config Error:', e);
             return { error: e };
         }
     },
@@ -58,7 +63,8 @@ window.AppConfigLoader = {
         let salt = window.AppState.get('encryptionSalt');
         if (!salt) {
             salt = await window.AppCrypto.generateSalt();
-            await this.saveUserSettings({ encryption_salt: salt });
+            const result = await this.saveUserSettings({ encryption_salt: salt });
+            if (result.error) return null;
             window.AppState.set('encryptionSalt', salt);
         }
         return salt;
@@ -79,7 +85,7 @@ window.AppConfigLoader = {
             if (settings.narrative_prompt_nsfw) ui.narrativePrompt.value = settings.narrative_prompt_nsfw;
         } else {
             if (settings.system_prompt) ui.sysPrompt.value = settings.system_prompt;
-            if (settings.narrative_prompt) ui.narrativePrompt.value = settings.narrative_prompt;
+            if (settings.narrative_prompt) ui.narrative_prompt.value = settings.narrative_prompt;
         }
 
         if (settings.temperature) {
@@ -132,8 +138,22 @@ window.AppConfigLoader = {
 
             window.AppState.set('encryptionUnlocked', true);
             window.AppState.set('sessionPassphrase', passphrase);
+
+            const ui = window.AppUI.get();
+            if (ui.apiKey) {
+                ui.apiKey.value = window.AppState.get('decryptedApiKey') || '';
+                ui.apiKey.type = 'text';
+                setTimeout(() => { if(ui.apiKey) ui.apiKey.type = 'password'; }, 3000);
+            }
+            if (ui.googleTtsKey) {
+                ui.googleTtsKey.value = window.AppState.get('decryptedTtsKey') || '';
+                ui.googleTtsKey.type = 'text';
+                setTimeout(() => { if(ui.googleTtsKey) ui.googleTtsKey.type = 'password'; }, 3000);
+            }
+
             return true;
         } catch (e) {
+            console.error('Decryption failed:', e);
             return false;
         }
     },
@@ -143,14 +163,10 @@ window.AppConfigLoader = {
         if (!user) return { error: new Error('No user') };
 
         const passphrase = window.AppState.get('sessionPassphrase');
-        if (!passphrase) {
-            return { error: new Error('No encryption passphrase set') };
-        }
+        if (!passphrase) return { error: new Error('No passphrase') };
 
         const salt = window.AppState.get('encryptionSalt');
-        if (!salt) {
-            return { error: new Error('No encryption salt') };
-        }
+        if (!salt) return { error: new Error('No salt') };
 
         try {
             const { cipher, iv } = await window.AppCrypto.encrypt(apiKey, passphrase, salt);
@@ -170,14 +186,10 @@ window.AppConfigLoader = {
         if (!user) return { error: new Error('No user') };
 
         const passphrase = window.AppState.get('sessionPassphrase');
-        if (!passphrase) {
-            return { error: new Error('No encryption passphrase set') };
-        }
+        if (!passphrase) return { error: new Error('No passphrase') };
 
         const salt = window.AppState.get('encryptionSalt');
-        if (!salt) {
-            return { error: new Error('No encryption salt') };
-        }
+        if (!salt) return { error: new Error('No salt') };
 
         try {
             const { cipher, iv } = await window.AppCrypto.encrypt(ttsKey, passphrase, salt);
