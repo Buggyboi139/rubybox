@@ -7,6 +7,13 @@ window.App = {
 
         window.AppUI.init();
 
+        if (!window.AppSupabase.isReady()) {
+            window.AppSupabase.init(
+                window.AppConfig.SUPABASE_URL,
+                window.AppConfig.SUPABASE_ANON_KEY
+            );
+        }
+
         window.AppState.setUser(authenticatedUser);
         window.AppState.set('currentMode', 'chat');
 
