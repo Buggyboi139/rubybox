@@ -4,8 +4,9 @@ window.AppModals = {
         if (modal) {
             modal.classList.remove('hidden');
         }
-        window.AppUI.sidebar?.classList.remove('show');
-        window.AppUI.overlay?.classList.remove('show');
+        const ui = window.AppUI.get();
+        ui.sidebar?.classList.remove('show');
+        ui.overlay?.classList.remove('show');
     },
 
     close(modalId) {
@@ -22,17 +23,19 @@ window.AppModals = {
     },
 
     toggleSidebar(show) {
+        const ui = window.AppUI.get();
         if (show) {
-            window.AppUI.sidebar?.classList.add('show');
-            window.AppUI.overlay?.classList.add('show');
+            ui.sidebar?.classList.add('show');
+            ui.overlay?.classList.add('show');
         } else {
-            window.AppUI.sidebar?.classList.remove('show');
-            window.AppUI.overlay?.classList.remove('show');
+            ui.sidebar?.classList.remove('show');
+            ui.overlay?.classList.remove('show');
         }
     },
 
     handleOverlayClick() {
-        window.AppUI.sidebar?.classList.remove('show');
-        window.AppUI.overlay?.classList.remove('show');
+        const ui = window.AppUI.get();
+        ui.sidebar?.classList.remove('show');
+        ui.overlay?.classList.remove('show');
     }
 };
