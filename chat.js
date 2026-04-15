@@ -1,25 +1,8 @@
-window.App.extractTextFromContent = function(content) {
-    if (typeof content === 'string') return content;
-    if (Array.isArray(content)) {
-        const txtObj = content.find(c => c.type === 'text');
-        return txtObj ? txtObj.text : '';
-    }
-    return '';
-};
-
-window.App.extractImageFromContent = function(content) {
-    if (Array.isArray(content)) {
-        const imgObj = content.find(c => c.type === 'image_url');
-        return imgObj ? imgObj.image_url.url : null;
-    }
-    return null;
-};
-
 window.App.showToast = function(msg, type='info') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.innerText = msg;
+    toast.className = `toast ${DOMPurify.sanitize(type)}`;
+    toast.innerText = DOMPurify.sanitize(msg);
     container.appendChild(toast);
     requestAnimationFrame(() => {
         toast.classList.add('show');
@@ -45,19 +28,27 @@ window.App.renderCharacters = function() {
         div.className = 'char-card';
         const avatarSrc = c.avatar || window.App.DEFAULT_AI_AVATAR;
         div.innerHTML = `
-            <button class="char-edit" data-id="${c.id}">✎</button>
-            <button class="char-del" data-id="${c.id}">&times;</button>
+            <button class="char-fav" data-id="${DOMPurify.sanitize(c.id)}" style="color: ${c.is_favorite ? '#fbbf24' : '#64748b'};">★</button>
+            <button class="char-edit" data-id="${DOMPurify.sanitize(c.id)}">✎</button>
+            <button class="char-del" data-id="${DOMPurify.sanitize(c.id)}">&times;</button>
             <img src="${DOMPurify.sanitize(avatarSrc)}" alt="avatar">
             <div class="char-title">${DOMPurify.sanitize(c.name)}</div>
             <div class="char-preview-tooltip">${DOMPurify.sanitize(c.system_prompt)}</div>
         `;
         
         div.addEventListener('click', (e) => {
-            if (e.target.classList.contains('char-del') || e.target.classList.contains('char-edit')) return;
+            if (e.target.classList.contains('char-del') || e.target.classList.contains('char-edit') || e.target.classList.contains('char-fav')) return;
             window.App.state.activeCharacter = c;
-            window.App.currentConversationId = null;
-            window.App.startNewChat();
+            window.App.renderActiveCharacter();
             window.App.UI.charModal.classList.add('hidden');
+        });
+
+        div.querySelector('.char-fav').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await window.supabaseClient.from('characters').update({ is_favorite: false }).eq('mode', c.mode).eq('user_id', window.App.user.id);
+            await window.supabaseClient.from('characters').update({ is_favorite: true }).eq('id', c.id);
+            await window.App.loadCharacters();
+            if (!window.App.currentConversationId) window.App.startNewChat();
         });
 
         div.querySelector('.char-edit').addEventListener('click', (e) => {
@@ -100,9 +91,9 @@ window.App.renderActiveCharacter = function() {
         window.App.state.activeCharacter = window.App.BASE_PERSONAS[window.App.currentMode || 'chat'];
     }
     window.App.UI.activeCharDisplay.classList.remove('hidden');
-    window.App.UI.activeCharImg.src = window.App.state.activeCharacter.avatar || window.App.DEFAULT_AI_AVATAR;
+    window.App.UI.activeCharImg.src = DOMPurify.sanitize(window.App.state.activeCharacter.avatar || window.App.DEFAULT_AI_AVATAR);
     const isBase = window.App.state.activeCharacter.id && window.App.state.activeCharacter.id.startsWith('base-');
-    window.App.UI.activeCharName.innerHTML = `${window.App.state.activeCharacter.name} ${isBase ? '<span class="base-badge">BASE</span>' : ''}`;
+    window.App.UI.activeCharName.innerHTML = `${DOMPurify.sanitize(window.App.state.activeCharacter.name)} ${isBase ? '<span class="base-badge">BASE</span>' : ''}`;
     
     window.App.UI.prompt.disabled = false;
     window.App.UI.prompt.placeholder = "Message...";
@@ -134,16 +125,16 @@ window.App.handleVoiceStateChange = function(status) {
 
 window.App.buildMessageContainer = function(role, streaming, msgId) {
     const container = document.createElement('div');
-    container.className = `msg-container ${role}`;
+    container.className = `msg-container ${DOMPurify.sanitize(role)}`;
     if (streaming) container.id = 'streaming-container';
-    if (msgId) container.dataset.id = msgId;
+    if (msgId) container.dataset.id = DOMPurify.sanitize(msgId);
 
     const avatar = document.createElement('img');
     avatar.className = 'msg-avatar';
-    avatar.src = role === 'user' ? window.App.DEFAULT_USER_AVATAR : ((window.App.state.activeCharacter && window.App.state.activeCharacter.avatar) ? window.App.state.activeCharacter.avatar : window.App.DEFAULT_AI_AVATAR);
+    avatar.src = DOMPurify.sanitize(role === 'user' ? window.App.DEFAULT_USER_AVATAR : ((window.App.state.activeCharacter && window.App.state.activeCharacter.avatar) ? window.App.state.activeCharacter.avatar : window.App.DEFAULT_AI_AVATAR));
 
     const msgDiv = document.createElement('div');
-    msgDiv.className = `msg ${role}`;
+    msgDiv.className = `msg ${DOMPurify.sanitize(role)}`;
     const inner = document.createElement('div');
     inner.className = 'content';
     
@@ -366,7 +357,7 @@ window.App.addMessage = function(role, content, streaming = false, msgId = null)
         const imgUrl = window.App.extractImageFromContent(content);
         if (imgUrl) {
             const img = document.createElement('img');
-            img.src = imgUrl;
+            img.src = DOMPurify.sanitize(imgUrl);
             img.className = 'multimodal-img';
             msgDiv.appendChild(img);
         }
@@ -395,14 +386,31 @@ window.App.addMessage = function(role, content, streaming = false, msgId = null)
     return target;
 };
 
+window.App.extractTextFromContent = function(content) {
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+        const txtObj = content.find(c => c.type === 'text');
+        return txtObj ? txtObj.text : '';
+    }
+    return '';
+};
+
+window.App.extractImageFromContent = function(content) {
+    if (Array.isArray(content)) {
+        const imgObj = content.find(c => c.type === 'image_url');
+        return imgObj ? imgObj.image_url.url : null;
+    }
+    return null;
+};
+
 window.App.generateChatTitle = async function(firstPrompt, convId) {
-    if (!window.App.UI.apiKey.value) return; 
+    if (!window.App.UI.apiKey.value) return;
     try {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-                model: "google/gemini-2.5-flash-lite",
+                model: "google/gemini-2.5-flash",
                 messages: [{ role: "user", content: `Summarize this into a 3-5 word title. Only output the title: ${firstPrompt}` }],
                 stream: false
             })
@@ -413,92 +421,31 @@ window.App.generateChatTitle = async function(firstPrompt, convId) {
             await window.supabaseClient.from('conversations').update({ title }).eq('id', convId);
             window.App.loadConversations();
         }
-    } catch(e) {}
+    } catch(e) {
+        console.error(e);
+    }
 };
 
-window.App.generateImage = async function() {
-    if (!window.App.user) {
-        window.App.showToast("Please sign in first.", "error");
+window.App.exportChat = function() {
+    if (window.App.state.history.length === 0) {
+        window.App.showToast("No chat history to export.", "error");
         return;
     }
-    if (window.App.isExecuting) return;
+    let mdContent = window.App.state.history.map(m => {
+        const text = window.App.extractTextFromContent(m.content);
+        return `### ${m.role.toUpperCase()}\n${text}`;
+    }).join('\n\n---\n\n');
     
-    const promptText = window.App.UI.prompt.value.trim();
-    if (!promptText) {
-        window.App.showToast("Enter a prompt to generate an image.", "error");
-        return;
-    }
-
-    window.App.isExecuting = true;
-    window.App.UI.prompt.value = "";
-    window.App.UI.prompt.style.height = '50px';
-    window.App.UI.tokenCounter.innerText = "~0 tokens";
-    window.App.UI.stopBtn.classList.remove('hidden');
-    window.App.UI.sendBtn.classList.add('hidden');
-
-    const tempId = 'temp-' + Date.now();
-    window.App.addMessage('assistant', "Conjuring image...", false, tempId);
-
-    try {
-        if (!window.App.currentConversationId) {
-            const title = promptText.substring(0, 30).trim() + "...";
-            const currentMode = window.App.currentMode || 'chat';
-            const charId = (window.App.state.activeCharacter && !window.App.state.activeCharacter.id.startsWith('base-')) ? window.App.state.activeCharacter.id : null;
-            const { data: newChat, error: chatError } = await window.supabaseClient.from('conversations').insert([{ 
-                user_id: window.App.user.id, title: title, mode: currentMode, character_id: charId 
-            }]).select().single();
-            if (chatError) throw chatError;
-            window.App.currentConversationId = newChat.id;
-            window.App.loadConversations();
-        }
-
-        const { data: userMsg, error: msgError } = await window.supabaseClient.from('messages').insert([{ 
-            conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: 'user', content: promptText 
-        }]).select().single();
-        if (msgError) throw msgError;
-        
-        window.App.state.history.push({ role: 'user', content: promptText, id: userMsg.id });
-        window.App.addMessage('user', promptText, false, userMsg.id);
-
-        const masterTags = "masterpiece, highly detailed, raw photo, 8k resolution, ";
-        const encodedPrompt = encodeURIComponent(masterTags + promptText);
-        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true`;
-
-        const imgRes = await fetch(imageUrl);
-        if (!imgRes.ok) throw new Error("Image generation failed.");
-        const imgBlob = await imgRes.blob();
-        
-        const fileName = `gen_${window.App.user.id}_${Date.now()}.jpg`;
-        const { error: uploadError } = await window.supabaseClient.storage.from('chat_images').upload(fileName, imgBlob);
-        
-        let finalUrl = imageUrl;
-        if (!uploadError) {
-            const { data: urlData } = window.supabaseClient.storage.from('chat_images').getPublicUrl(fileName);
-            finalUrl = urlData.publicUrl;
-        }
-
-        const mdContent = `![Generated Image](${finalUrl})`;
-
-        const tempNode = document.querySelector(`[data-id="${tempId}"]`);
-        if (tempNode) tempNode.remove();
-
-        const { data: aiData, error: aiError } = await window.supabaseClient.from('messages').insert([{ 
-            conversation_id: window.App.currentConversationId, user_id: window.App.user.id, role: 'assistant', content: mdContent 
-        }]).select().single();
-        if (aiError) throw aiError;
-        
-        window.App.state.history.push({ role: 'assistant', content: mdContent, id: aiData.id });
-        window.App.addMessage('assistant', mdContent, false, aiData.id);
-
-    } catch (e) {
-        window.App.showToast(`Generation Error: ${e.message}`, "error");
-        const tempNode = document.querySelector(`[data-id="${tempId}"]`);
-        if (tempNode) tempNode.remove();
-    } finally {
-        window.App.isExecuting = false;
-        window.App.UI.stopBtn.classList.add('hidden');
-        window.App.UI.sendBtn.classList.remove('hidden');
-    }
+    const blob = new Blob([mdContent], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rubybox_chat_${Date.now()}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    window.App.showToast("Chat exported to Markdown.");
 };
 
 window.App.execute = async function(fromVoice = false) {
@@ -529,7 +476,6 @@ window.App.execute = async function(fromVoice = false) {
                     window.App.showToast("Image upload failed.", "error");
                     window.App.UI.stopBtn.classList.add('hidden');
                     window.App.UI.sendBtn.classList.remove('hidden');
-                    window.App.isExecuting = false;
                     return;
                 }
                 
@@ -555,7 +501,12 @@ window.App.execute = async function(fromVoice = false) {
                     .select()
                     .single();
                     
-                if (chatError) throw chatError;
+                if (chatError) {
+                    window.App.showToast("Failed to create chat", "error");
+                    window.App.UI.stopBtn.classList.add('hidden');
+                    window.App.UI.sendBtn.classList.remove('hidden');
+                    return;
+                }
                 window.App.currentConversationId = newChat.id;
             }
 
@@ -599,17 +550,11 @@ window.App.execute = async function(fromVoice = false) {
         const systemContent = `${activeCharPrompt}${window.App.UI.sysPrompt.value}\n\n[NARRATIVE CONTEXT]\n${window.App.UI.narrativePrompt.value}\n\n[PERSISTENT MEMORY]\n${window.App.UI.persistMem.value}`;
         const messages = [{ role: "system", content: systemContent }, ...recent];
         
-        let targetModel = window.App.UI.model.value || "deepseek/deepseek-v3.2";
-        let apiUrl = "https://openrouter.ai/api/v1/chat/completions";
-        let usedApiKey = window.App.UI.apiKey.value;
+        const targetModel = window.App.UI.model.value;
 
-        if (!usedApiKey) {
-            throw new Error("OpenRouter API key is required.");
-        }
-
-        const response = await fetch(apiUrl, {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
-            headers: { "Authorization": `Bearer ${usedApiKey}`, "Content-Type": "application/json" },
+            headers: { "Authorization": `Bearer ${window.App.UI.apiKey.value}`, "Content-Type": "application/json" },
             signal: window.App.controller.signal,
             body: JSON.stringify({ model: targetModel, temperature: parseFloat(window.App.UI.tempSlider.value), max_tokens: maxTokens, messages: messages, stream: true })
         });
@@ -687,5 +632,102 @@ window.App.execute = async function(fromVoice = false) {
         window.App.UI.sendBtn.classList.remove('hidden');
         window.App.controller = null;
         window.App.isExecuting = false;
+    }
+};
+
+window.App.buildFromArchitect = async function() {
+    if (!window.App.user || !window.App.UI.apiKey.value) {
+        window.App.showToast("Requires authentication and OpenRouter API key.", "error");
+        return;
+    }
+
+    const input = window.App.UI.architectPrompt.value.trim();
+    if (!input) return;
+
+    window.App.UI.architectBuildBtn.classList.add('hidden');
+    window.App.UI.architectLoading.classList.remove('hidden');
+
+    try {
+        const sysPrompt = `Role: You are the NSFW Architect, an expert and perverted world-builder and system designer. Your objective is to take a user's seed prompt and construct a highly sexual interactive, lore-dense, and mechanically sound scenario. The output may represent a single complex character, an ensemble cast (e.g., a harem), or a complete open-world RPG framework.
+
+Directive: Maximize information density and interactive potential. Zero flowery exposition. Do not write passive history; write active conflicts. Ground the world in sensory details and strict internal logic. Every word should help to fundamentally shape the lewd character or scenario.
+
+Output Structure:
+Whenever the user provides a prompt, you must generate the framework using the following strict categories:
+1. Core Premise & Framework
+2. Environmental Design (World-Building)
+3. Entity/Cast Diagnostics (Character-Building)
+4. The Engine (Event Triggers)
+5. Point of Entry (The Opening)
+
+CRITICAL SYSTEM REQUIREMENT: You MUST output your entire response as a single, valid JSON object. Do not wrap it in markdown code blocks like \`\`\`json. The JSON must exactly match this schema:
+{
+"name": "A brutal, concise title for this scenario or character",
+"avatar_prompt": "A comma-separated list of highly specific visual tags based on the Entity/Environmental design to be fed into a Stable Diffusion image generator (e.g., 1girl, glowing neon, hyper-detailed, specific clothing/anatomy).",
+"system_prompt": "The complete, detailed text of all 5 categories requested above, cleanly formatted in markdown."
+}`;
+
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: { 
+                "Authorization": `Bearer ${window.App.UI.apiKey.value}`, 
+                "Content-Type": "application/json" 
+            },
+            body: JSON.stringify({
+                model: "deepseek/deepseek-v3.2",
+                messages: [
+                    { role: "system", content: sysPrompt },
+                    { role: "user", content: input }
+                ],
+                temperature: 0.85
+            })
+        });
+
+        if (!response.ok) throw new Error("Architect synthesis failed.");
+        
+        const data = await response.json();
+        const rawText = data.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim();
+        const profile = JSON.parse(rawText);
+
+        const safeSystemPrompt = profile.system_prompt.replace(/<[^>]*>?/gm, '').replace(/(\{\{|<\||\|>|\}\})/g, '').trim();
+        const safeName = profile.name.replace(/<[^>]*>?/gm, '').replace(/(\{\{|<\||\|>|\}\})/g, '').trim();
+
+        const encodedPrompt = encodeURIComponent(profile.avatar_prompt);
+        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=512&height=512&nologo=true`;
+        
+        const imgRes = await fetch(imageUrl);
+        const imgBlob = await imgRes.blob();
+        const fileName = `architect_${window.App.user.id}_${Date.now()}.jpg`;
+        
+        const { error: uploadError } = await window.supabaseClient.storage.from('chat_images').upload(fileName, imgBlob);
+        
+        let finalAvatarUrl = imageUrl; 
+        if (!uploadError) {
+            const { data: urlData } = window.supabaseClient.storage.from('chat_images').getPublicUrl(fileName);
+            finalAvatarUrl = urlData.publicUrl;
+        }
+
+        const currentMode = window.App.currentMode || 'chat';
+        const charPayload = {
+            user_id: window.App.user.id,
+            name: safeName,
+            system_prompt: safeSystemPrompt,
+            avatar: finalAvatarUrl,
+            mode: currentMode
+        };
+
+        const { error: dbError } = await window.supabaseClient.from('characters').insert([charPayload]);
+        if (dbError) throw dbError;
+        
+        window.App.UI.architectPrompt.value = "";
+        window.App.UI.architectModal.classList.add('hidden');
+        window.App.showToast(`Constructed: ${safeName}`);
+        await window.App.loadCharacters();
+
+    } catch (e) {
+        window.App.showToast(`Build failed: ${e.message}`, "error");
+    } finally {
+        window.App.UI.architectBuildBtn.classList.remove('hidden');
+        window.App.UI.architectLoading.classList.add('hidden');
     }
 };
