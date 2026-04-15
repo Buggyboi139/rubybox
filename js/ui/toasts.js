@@ -7,7 +7,7 @@ window.AppToasts = {
         }
         if (!this.container) {
             this.container = document.createElement('div');
-            this.container.id = 'toast-container');
+            this.container.id = 'toast-container';
             document.body.appendChild(this.container);
         }
     },
