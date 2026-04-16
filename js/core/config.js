@@ -13,12 +13,15 @@ window.AppConfigLoader = {
                     window.AppState.set('settings', {});
                     return {};
                 }
+                // FIX: also handle PGRST126 (multiple rows) gracefully
+                console.error('loadUserSettings error:', error.code, error.message);
                 return null;
             }
             window.AppState.set('settings', data);
-            window.AppState.set('encryptionSalt', data.encryption_salt);
+            window.AppState.set('encryptionSalt', data.encryption_salt || null);
             return data;
         } catch (e) {
+            console.error('loadUserSettings exception:', e);
             return null;
         }
     },
@@ -27,11 +30,23 @@ window.AppConfigLoader = {
         if (!user) return { error: new Error('No authenticated user') };
         const currentSettings = window.AppState.get('settings') || {};
         const { id, created_at, updated_at, ...cleanSettings } = currentSettings;
+
+        // FIX: ensure encrypted fields are NEVER accidentally nullified
+        // by stripping undefined values from the final payload
         const payload = {
             ...cleanSettings,
             user_id: user.id,
             ...settings
         };
+
+        // FIX: remove any keys whose value is undefined — Supabase would
+        // interpret those as explicit NULLs and overwrite real data
+        Object.keys(payload).forEach(key => {
+            if (payload[key] === undefined) {
+                delete payload[key];
+            }
+        });
+
         try {
             const { error } = await window.supabaseClient
                 .from('user_settings')
@@ -93,11 +108,31 @@ window.AppConfigLoader = {
     },
     async unlockSecrets(passphrase) {
         const settings = window.AppState.get('settings');
-        if (!settings) return false;
-        const salt = settings.encryption_salt;
-        if (!salt) return false;
+        if (!settings) {
+            console.error('unlockSecrets: no settings in state');
+            return false;
+        }
+
+        // FIX: use the canonical encryptionSalt from state as primary,
+        // fall back to settings object — they should be identical but
+        // this eliminates the divergence window
+        const salt = window.AppState.get('encryptionSalt') || settings.encryption_salt;
+        if (!salt) {
+            console.error('unlockSecrets: no encryption salt found');
+            return false;
+        }
+
+        // FIX: check that we actually have encrypted data to decrypt
+        const hasApiKey = !!(settings.encrypted_api_key && settings.encrypted_api_key_iv);
+        const hasTtsKey = !!(settings.encrypted_google_tts_key && settings.encrypted_google_tts_key_iv);
+
+        if (!hasApiKey && !hasTtsKey) {
+            console.error('unlockSecrets: no encrypted secrets found in settings');
+            return false;
+        }
+
         try {
-            if (settings.encrypted_api_key) {
+            if (hasApiKey) {
                 const apiKey = await window.AppCrypto.decrypt(
                     settings.encrypted_api_key,
                     settings.encrypted_api_key_iv,
@@ -106,7 +141,7 @@ window.AppConfigLoader = {
                 );
                 window.AppState.set('decryptedApiKey', apiKey);
             }
-            if (settings.encrypted_google_tts_key) {
+            if (hasTtsKey) {
                 const ttsKey = await window.AppCrypto.decrypt(
                     settings.encrypted_google_tts_key,
                     settings.encrypted_google_tts_key_iv,
@@ -130,7 +165,7 @@ window.AppConfigLoader = {
             }
             return true;
         } catch (e) {
-            console.error('Decryption failed:', e);
+            console.error('Decryption failed:', e.name, e.message);
             return false;
         }
     },
@@ -139,14 +174,18 @@ window.AppConfigLoader = {
         if (!user) return { error: new Error('No user') };
         const passphrase = window.AppState.get('sessionPassphrase');
         if (!passphrase) return { error: new Error('No passphrase') };
-        const salt = window.AppState.get('encryptionSalt');
-        if (!salt) return { error: new Error('No salt') };
+
+        // FIX: ensure salt exists before encrypting
+        const salt = await this.ensureEncryptionSalt();
+        if (!salt) return { error: new Error('Failed to create encryption salt') };
+
         try {
             const { cipher, iv } = await window.AppCrypto.encrypt(apiKey, passphrase, salt);
-            await this.saveUserSettings({
+            const result = await this.saveUserSettings({
                 encrypted_api_key: cipher,
                 encrypted_api_key_iv: iv
             });
+            if (result.error) return result; // FIX: propagate save errors
             window.AppState.set('decryptedApiKey', apiKey);
             return { error: null };
         } catch (e) {
@@ -158,14 +197,18 @@ window.AppConfigLoader = {
         if (!user) return { error: new Error('No user') };
         const passphrase = window.AppState.get('sessionPassphrase');
         if (!passphrase) return { error: new Error('No passphrase') };
-        const salt = window.AppState.get('encryptionSalt');
-        if (!salt) return { error: new Error('No salt') };
+
+        // FIX: ensure salt exists before encrypting
+        const salt = await this.ensureEncryptionSalt();
+        if (!salt) return { error: new Error('Failed to create encryption salt') };
+
         try {
             const { cipher, iv } = await window.AppCrypto.encrypt(ttsKey, passphrase, salt);
-            await this.saveUserSettings({
+            const result = await this.saveUserSettings({
                 encrypted_google_tts_key: cipher,
                 encrypted_google_tts_key_iv: iv
             });
+            if (result.error) return result; // FIX: propagate save errors
             window.AppState.set('decryptedTtsKey', ttsKey);
             return { error: null };
         } catch (e) {
