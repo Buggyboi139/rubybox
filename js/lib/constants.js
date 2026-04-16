@@ -84,5 +84,5 @@ window.AppConfig = {
             mode: 'nsfw'
         }
     },
-    CACHE_NAME: 'rubybox-v4'
+    CACHE_NAME: 'rubybox-v5'
 };
