@@ -26,11 +26,16 @@ window.AppMessageContent = {
     extractText(content) {
         if (!content) return '';
         if (typeof content === 'string') return content;
+        if (content.type === 'text') return content.text || '';
         if (Array.isArray(content)) {
             const textObj = content.find(c => c.type === 'text');
             return textObj ? textObj.text : '';
         }
-        return String(content);
+        try {
+            return JSON.stringify(content);
+        } catch {
+            return String(content);
+        }
     },
 
     extractImage(content) {
