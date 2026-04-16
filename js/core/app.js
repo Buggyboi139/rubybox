@@ -1,5 +1,6 @@
 window.App = {
     isBootstrapped: false,
+    _isHydrated: false, // FIX: guard against double hydration
 
     async bootstrap() {
         if (this.isBootstrapped) return;
@@ -24,7 +25,10 @@ window.App = {
         if (window.AppSupabase && window.AppSupabase.client) {
             window.AppSupabase.client.auth.onAuthStateChange((event, session) => {
                 if (event === 'SIGNED_IN' && session) {
-                    this.hydrateAuthenticatedApp(session.user);
+                    // FIX: only hydrate if not already hydrated for this user
+                    if (!this._isHydrated) {
+                        this.hydrateAuthenticatedApp(session.user);
+                    }
                 } else if (event === 'SIGNED_OUT') {
                     this.clearAuthenticatedApp();
                 }
@@ -33,6 +37,10 @@ window.App = {
     },
 
     async hydrateAuthenticatedApp(user) {
+        // FIX: prevent double hydration race condition
+        if (this._isHydrated) return;
+        this._isHydrated = true;
+
         window.AppState.setUser(user);
         window.AppState.set('currentMode', 'chat');
 
@@ -55,6 +63,7 @@ window.App = {
     },
 
     clearAuthenticatedApp() {
+        this._isHydrated = false; // FIX: allow re-hydration after sign-out
         window.AppState.setUser(null);
         if (window.AppState.reset) {
             window.AppState.reset();
