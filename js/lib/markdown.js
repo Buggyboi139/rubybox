@@ -1,31 +1,38 @@
 window.AppMarkdown = {
-    renderer: null,
-
     init() {
         if (typeof marked === 'undefined') return;
-        marked.setOptions({
-            breaks: true,
-            gfm: true
-        });
-        this.renderer = new marked.Renderer();
-        this.renderer.code = this._safeCodeBlock.bind(this);
-        marked.use({ renderer: this.renderer });
-    },
 
-    _safeCodeBlock(codeOrToken, language) {
-        // FIX: marked v15+ passes a single token object { text, lang, escaped }
-        // instead of separate (code, language) arguments.
-        let code, lang;
-        if (codeOrToken && typeof codeOrToken === 'object') {
-            code = codeOrToken.text || '';
-            lang = codeOrToken.lang || '';
-        } else {
-            code = codeOrToken || '';
-            lang = language || '';
+        try {
+            marked.setOptions({
+                breaks: true,
+                gfm: true
+            });
+
+            // FIX: Use plain object renderer override instead of new Renderer().
+            // In marked v12+, renderer methods receive a single token object
+            // {type, raw, text, lang, escaped} instead of positional args.
+            // Using new Renderer() and assigning methods then passing the whole
+            // instance to marked.use() causes [object Object] in code blocks.
+            const self = this;
+            marked.use({
+                renderer: {
+                    code(codeOrToken, language) {
+                        let code, lang;
+                        if (codeOrToken && typeof codeOrToken === 'object') {
+                            code = codeOrToken.text || '';
+                            lang = codeOrToken.lang || '';
+                        } else {
+                            code = String(codeOrToken || '');
+                            lang = language || '';
+                        }
+                        const validLang = /^[a-zA-Z0-9_-]+$/.test(lang) ? lang : '';
+                        return `<pre><code class="${validLang ? `language-${validLang}` : ''}">${self._escapeHtml(code)}</code></pre>`;
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('Markdown renderer init failed:', e);
         }
-
-        const validLang = /^[a-zA-Z0-9_-]+$/.test(lang) ? lang : '';
-        return `<pre><code class="${validLang ? `language-${validLang}` : ''}">${this._escapeHtml(code)}</code></pre>`;
     },
 
     _escapeHtml(text) {
@@ -69,12 +76,14 @@ window.AppMarkdown = {
 
     render(text) {
         if (!text) return '';
+        if (typeof text !== 'string') text = String(text);
         const html = this.parse(text);
         return this.sanitize(html);
     },
 
     renderWithThink(text) {
         if (!text) return '';
+        if (typeof text !== 'string') text = String(text);
 
         const thinkOpen = '<think>';
         const thinkClose = '</think>';
@@ -83,7 +92,6 @@ window.AppMarkdown = {
         let lastIndex = 0;
         let depth = 0;
         let openIndex = 0;
-        let closeIndex = 0;
 
         while (true) {
             const nextOpen = text.indexOf(thinkOpen, lastIndex);
