@@ -12,13 +12,24 @@ window.AppMarkdown = {
         marked.use({ renderer: this.renderer });
     },
 
-    _safeCodeBlock(code, language) {
-        const lang = language || '';
+    _safeCodeBlock(codeOrToken, language) {
+        // FIX: marked v15+ passes a single token object { text, lang, escaped }
+        // instead of separate (code, language) arguments.
+        let code, lang;
+        if (codeOrToken && typeof codeOrToken === 'object') {
+            code = codeOrToken.text || '';
+            lang = codeOrToken.lang || '';
+        } else {
+            code = codeOrToken || '';
+            lang = language || '';
+        }
+
         const validLang = /^[a-zA-Z0-9_-]+$/.test(lang) ? lang : '';
         return `<pre><code class="${validLang ? `language-${validLang}` : ''}">${this._escapeHtml(code)}</code></pre>`;
     },
 
     _escapeHtml(text) {
+        if (typeof text !== 'string') text = String(text);
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
@@ -29,7 +40,7 @@ window.AppMarkdown = {
         try {
             return marked.parse(markdown);
         } catch (e) {
-            console.error(e);
+            console.error('Markdown parse error:', e);
             return this._escapeHtml(markdown);
         }
     },
@@ -58,9 +69,6 @@ window.AppMarkdown = {
 
     render(text) {
         if (!text) return '';
-        if (typeof text !== 'string') {
-            text = window.AppMessageContent.extractText(text);
-        }
         const html = this.parse(text);
         return this.sanitize(html);
     },
