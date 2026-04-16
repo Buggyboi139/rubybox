@@ -29,7 +29,7 @@ window.AppMarkdown = {
         try {
             return marked.parse(markdown);
         } catch (e) {
-            console.error('Markdown parse error:', e);
+            console.error(e);
             return this._escapeHtml(markdown);
         }
     },
@@ -58,6 +58,9 @@ window.AppMarkdown = {
 
     render(text) {
         if (!text) return '';
+        if (typeof text !== 'string') {
+            text = window.AppMessageContent.extractText(text);
+        }
         const html = this.parse(text);
         return this.sanitize(html);
     },
