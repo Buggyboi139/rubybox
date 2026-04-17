@@ -596,40 +596,55 @@ window.AppEvents = {
             });
         }
 
-        if (ui.authLoginBtn) {
-            ui.authLoginBtn.addEventListener('click', async () => {
-                try {
-                    const email = ui.authEmail?.value || '';
-                    const pass = ui.authPassword?.value || '';
-                    
-                    const result = await window.AppAuthService.login(email, pass);
-                    if (result.error) {
-                        window.AppToasts.show(result.error.message, 'error');
-                    } else {
-                        window.AppModals.close('authModal');
-                    }
-                } catch (error) {
-                    console.error('[Events] Login error:', error);
-                    window.AppToasts.show('Login failed', 'error');
+        const _submitAuth = async (action) => {
+            const email = ui.authEmail?.value || '';
+            const pass = ui.authPassword?.value || '';
+            if (ui.authLoginBtn) ui.authLoginBtn.disabled = true;
+            if (ui.authSignupBtn) ui.authSignupBtn.disabled = true;
+            try {
+                const result = await action(email, pass);
+                if (result.error) {
+                    window.AppToasts.show(result.error.message, 'error');
+                } else {
+                    if (ui.authEmail) ui.authEmail.value = '';
+                    if (ui.authPassword) ui.authPassword.value = '';
+                    window.AppModals.close('authModal');
                 }
+            } catch (error) {
+                console.error('[Events] Auth submit error:', error);
+                window.AppToasts.show('Authentication failed', 'error');
+            } finally {
+                if (ui.authLoginBtn) ui.authLoginBtn.disabled = false;
+                if (ui.authSignupBtn) ui.authSignupBtn.disabled = false;
+            }
+        };
+
+        if (ui.authLoginBtn) {
+            ui.authLoginBtn.addEventListener('click', () => {
+                _submitAuth((email, pass) => window.AppAuthService.login(email, pass));
             });
         }
 
         if (ui.authSignupBtn) {
-            ui.authSignupBtn.addEventListener('click', async () => {
-                try {
-                    const email = ui.authEmail?.value || '';
-                    const pass = ui.authPassword?.value || '';
-                    
-                    const result = await window.AppAuthService.signup(email, pass);
-                    if (result.error) {
-                        window.AppToasts.show(result.error.message, 'error');
-                    } else {
-                        window.AppModals.close('authModal');
-                    }
-                } catch (error) {
-                    console.error('[Events] Signup error:', error);
-                    window.AppToasts.show('Signup failed', 'error');
+            ui.authSignupBtn.addEventListener('click', () => {
+                _submitAuth((email, pass) => window.AppAuthService.signup(email, pass));
+            });
+        }
+
+        if (ui.authEmail) {
+            ui.authEmail.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    ui.authPassword?.focus();
+                }
+            });
+        }
+
+        if (ui.authPassword) {
+            ui.authPassword.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    _submitAuth((email, pass) => window.AppAuthService.login(email, pass));
                 }
             });
         }

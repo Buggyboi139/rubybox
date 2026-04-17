@@ -4,7 +4,9 @@ class AppError extends Error {
         this.name = this.constructor.name;
         this.code = code;
         this.statusCode = statusCode;
-        Error.captureStackTrace(this, this.constructor);
+        if (Error.captureStackTrace) {
+            Error.captureStackTrace(this, this.constructor);
+        }
     }
 }
 
