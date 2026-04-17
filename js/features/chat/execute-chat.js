@@ -152,8 +152,6 @@ window.AppFeaturesChat = {
             throw result.error;
         }
 
-        window.AppChatView.finalizeStreamingMessage(null, fullText);
-
         if (fromVoice) {
             window.AppVoiceManager.commitBuffer();
             window.AppVoiceManager.markStreamComplete();
@@ -169,14 +167,14 @@ window.AppFeaturesChat = {
             throw new window.AppErrors.MessageSendError(aiError.message || 'Failed to save assistant message');
         }
 
+        window.AppChatView.finalizeStreamingMessage(aiMsg.id, fullText);
+
         window.AppState.addMessage({
             id: aiMsg.id,
             role: 'assistant',
             content: fullText,
             conversation_id: conversationId
         });
-
-        window.AppChatView.renderMessage('assistant', fullText, aiMsg.id);
     },
 
     _handleExecutionError(error) {

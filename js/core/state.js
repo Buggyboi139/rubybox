@@ -122,6 +122,10 @@ window.AppState = {
     },
 
     removeMessagesAfter(messageId) {
+        if (messageId === null || messageId === undefined) {
+            this.clearHistory();
+            return;
+        }
         const index = this._state.history.findIndex(m => m.id === messageId);
         if (index > -1) {
             this._state.history = this._state.history.slice(0, index + 1);

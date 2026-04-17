@@ -58,7 +58,7 @@ window.App = {
 
         window.AppVoiceManager.init(
             (text) => this._handleTranscriptionSubmit(text),
-            (status) => window.AppChatView.renderSystemMessage(`Voice: ${status}`)
+            (status) => console.debug('[Voice] State changed:', status)
         );
     },
 

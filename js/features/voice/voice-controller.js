@@ -148,6 +148,9 @@ window.AppVoiceManager = {
     },
 
     receiveDelta(delta) {
+        if (delta.includes('<think>')) {
+            this.isThinking = true;
+        }
         if (delta.includes('</think>')) {
             this.isThinking = false;
             const parts = delta.split('</think>');
