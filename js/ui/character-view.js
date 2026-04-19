@@ -2,6 +2,7 @@ window.AppCharacterView = {
     renderCharacterList(characters) {
         const ui = window.AppUI.get();
         ui.charList.innerHTML = '';
+        const fragment = document.createDocumentFragment();
 
         characters.forEach(char => {
             const card = document.createElement('div');
@@ -32,8 +33,10 @@ window.AppCharacterView = {
                 await window.AppFeaturesPersonas.deleteCharacter(char.id);
             });
 
-            ui.charList.appendChild(card);
+            fragment.appendChild(card);
         });
+        
+        ui.charList.appendChild(fragment);
     },
 
     renderActiveCharacter() {

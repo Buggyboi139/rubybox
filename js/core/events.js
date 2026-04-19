@@ -24,13 +24,15 @@ window.AppEvents = {
         const ui = window.AppUI.get();
         if (!ui?.chatLog) return;
 
-        ui.chatLog.addEventListener('scroll', () => {
+        const throttledScroll = window.AppUtils.throttle(() => {
             try {
                 window.AppChatView.updateScrollState();
             } catch (error) {
                 console.error('[Events] Scroll handler error:', error);
             }
-        });
+        }, 100);
+
+        ui.chatLog.addEventListener('scroll', throttledScroll, { passive: true });
     },
 
     _bindSidebar() {
@@ -67,15 +69,13 @@ window.AppEvents = {
                 }
             });
             
-            ui.mobileSidebarClose.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+            ui.mobileSidebarClose.addEventListener('touchstart', () => {
                 try {
                     window.AppModals.toggleSidebar(false);
                 } catch (error) {
                     console.error('[Events] Mobile sidebar touch error:', error);
                 }
-            }, { passive: false });
+            }, { passive: true });
         }
     },
 

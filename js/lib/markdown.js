@@ -8,11 +8,6 @@ window.AppMarkdown = {
                 gfm: true
             });
 
-            // FIX: Use plain object renderer override instead of new Renderer().
-            // In marked v12+, renderer methods receive a single token object
-            // {type, raw, text, lang, escaped} instead of positional args.
-            // Using new Renderer() and assigning methods then passing the whole
-            // instance to marked.use() causes [object Object] in code blocks.
             const self = this;
             marked.use({
                 renderer: {
@@ -53,9 +48,9 @@ window.AppMarkdown = {
     },
 
     sanitize(html, extraOptions = {}) {
-        if (typeof DOMPurify === 'undefined') return html;
+        if (typeof DOMPurify === 'undefined') return this._escapeHtml(html);
         return DOMPurify.sanitize(html, {
-            ALLOWED_TAGS: [
+            ALLOWED_TAGS:[
                 'p', 'br', 'strong', 'em', 'b', 'i', 'u', 's',
                 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
                 'ul', 'ol', 'li',
@@ -65,7 +60,7 @@ window.AppMarkdown = {
                 'hr', 'span', 'div',
                 'think'
             ],
-            ALLOWED_ATTR: [
+            ALLOWED_ATTR:[
                 'href', 'src', 'alt', 'title', 'class', 'id',
                 'target', 'rel', 'width', 'height'
             ],

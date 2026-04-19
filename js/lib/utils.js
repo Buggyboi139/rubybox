@@ -19,7 +19,12 @@ window.AppUtils = {
     },
 
     generateId() {
-        return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        if (window.crypto && window.crypto.randomUUID) {
+            return window.crypto.randomUUID();
+        }
+        const array = new Uint8Array(16);
+        window.crypto.getRandomValues(array);
+        return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
     },
 
     generateSalt() {
@@ -58,7 +63,7 @@ window.AppUtils = {
     formatFileSize(bytes) {
         if (bytes === 0) return '0 Bytes';
         const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const sizes =['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     },

@@ -77,7 +77,7 @@ window.AppChatView = {
                 return null;
             }
 
-            const { streaming = false } = options;
+            const { streaming = false, container: targetContainer, skipScroll = false } = options;
 
             if (streaming) {
                 const existing = document.getElementById('streaming-container');
@@ -107,9 +107,10 @@ window.AppChatView = {
                 msgDiv.appendChild(actions);
             }
 
-            ui.chatLog.appendChild(container);
+            const target = targetContainer || ui.chatLog;
+            target.appendChild(container);
 
-            if (window.AppState.get('isAutoScrolling')) {
+            if (!skipScroll && window.AppState.get('isAutoScrolling')) {
                 this._scrollToBottom(ui.chatLog);
             }
 

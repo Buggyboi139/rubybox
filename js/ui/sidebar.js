@@ -4,6 +4,7 @@ window.AppSidebar = {
         ui.conversationsList.innerHTML = '';
 
         const searchTerm = ui.chatSearch?.value?.toLowerCase() || '';
+        const fragment = document.createDocumentFragment();
 
         conversations.forEach(conv => {
             if (searchTerm && !conv.title?.toLowerCase().includes(searchTerm)) return;
@@ -35,8 +36,10 @@ window.AppSidebar = {
                 await window.AppFeaturesChat.loadConversationList();
             });
 
-            ui.conversationsList.appendChild(item);
+            fragment.appendChild(item);
         });
+        
+        ui.conversationsList.appendChild(fragment);
     },
 
     setActiveConversation(id) {
