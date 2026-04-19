@@ -91,7 +91,21 @@ window.AppLLMService = {
                             if (onChunk) onChunk(delta, fullText);
                         }
                     } catch (e) {
-                        // skip malformed lines
+                    }
+                }
+            }
+
+            if (buffer) {
+                const cleanLine = buffer.replace(/^data: /, '').trim();
+                if (cleanLine && cleanLine !== '[DONE]') {
+                    try {
+                        const parsed = JSON.parse(cleanLine);
+                        const delta = parsed.choices?.[0]?.delta?.content || '';
+                        if (delta) {
+                            fullText += delta;
+                            if (onChunk) onChunk(delta, fullText);
+                        }
+                    } catch (e) {
                     }
                 }
             }
@@ -119,7 +133,7 @@ window.AppLLMService = {
                 },
                 body: JSON.stringify({
                     model: 'google/gemini-2.5-flash',
-                    messages: [{
+                    messages:[{
                         role: 'user',
                         content: `Summarize this into a 3-5 word title. Only output the title: ${firstPrompt}`
                     }],
@@ -160,7 +174,7 @@ window.AppLLMService = {
                 },
                 body: JSON.stringify({
                     model: 'deepseek/deepseek-v3.2',
-                    messages: [
+                    messages:[
                         { role: 'system', content: sysPrompt },
                         { role: 'user', content: chatLog }
                     ],
@@ -193,7 +207,7 @@ window.AppLLMService = {
                 },
                 body: JSON.stringify({
                     model: 'deepseek/deepseek-v3.2',
-                    messages: [
+                    messages:[
                         { role: 'system', content: sysPrompt },
                         { role: 'user', content: userPrompt }
                     ],

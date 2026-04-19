@@ -96,12 +96,19 @@ window.AppBranchChat = {
         ui.prompt.style.height = 'auto';
         ui.prompt.style.height = ui.prompt.scrollHeight + 'px';
 
-        window.AppMessagesService.deleteAfter(window.AppState.get('currentConversationId'), messageId);
+        const toDelete = history.slice(index);
+        toDelete.forEach(async m => {
+            if (m.id) await window.AppMessagesService.delete(m.id);
+        });
+        
         window.AppState.set('history', history.slice(0, index));
 
-        const chatLog = window.AppUI.get().chatLog;
-        while (chatLog.children.length > index + 1) {
-            chatLog.lastChild.remove();
+        const containerEl = document.querySelector(`[data-id="${CSS.escape(messageId)}"]`);
+        if (containerEl) {
+            while (containerEl.nextSibling) {
+                containerEl.nextSibling.remove();
+            }
+            containerEl.remove();
         }
     },
 

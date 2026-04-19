@@ -51,7 +51,7 @@ window.AppFeaturesChat = {
 
         let contentPayload = input;
         if (attachedImage) {
-            contentPayload = [];
+            contentPayload =[];
             if (input) {
                 contentPayload.push({ type: 'text', text: input });
             }
@@ -95,8 +95,9 @@ window.AppFeaturesChat = {
         window.AppChatView.renderMessage('user', contentPayload, userMsg.id);
 
         if (window.AppState.getHistory().length === 1) {
-            window.AppLLMService.generateTitle(input, conversationId);
-            await this.loadConversationList();
+            window.AppLLMService.generateTitle(input, conversationId).then(() => {
+                this.loadConversationList();
+            });
         }
 
         this._clearPromptArea();
@@ -178,8 +179,9 @@ window.AppFeaturesChat = {
     },
 
     _handleExecutionError(error) {
+        window.AppChatView.removeStreamingMessage();
+        
         if (error.name === 'AbortError') {
-            window.AppChatView.removeStreamingMessage();
             return;
         }
 
@@ -243,7 +245,7 @@ window.AppFeaturesChat = {
         const history = window.AppState.getHistory().slice(-limit);
 
         const activeCharPrompt = activeChar ? activeChar.system_prompt + '\n\n' : '';
-        const systemContent = [
+        const systemContent =[
             activeCharPrompt,
             ui.sysPrompt?.value || '',
             '\n[NARRATIVE CONTEXT]\n',
@@ -252,7 +254,7 @@ window.AppFeaturesChat = {
             ui.persistMem?.value || ''
         ].join('');
 
-        const messages = [{ role: 'system', content: systemContent }];
+        const messages =[{ role: 'system', content: systemContent }];
         history.forEach(m => {
             messages.push({ role: m.role, content: m.content });
         });
@@ -313,8 +315,8 @@ window.AppFeaturesChat = {
             return;
         }
 
-        window.AppState.set('conversations', data || []);
-        window.AppSidebar.renderConversations(data || [], window.AppState.get('currentConversationId'));
+        window.AppState.set('conversations', data ||[]);
+        window.AppSidebar.renderConversations(data ||[], window.AppState.get('currentConversationId'));
     },
 
     async loadConversation(convId) {
@@ -424,6 +426,8 @@ window.AppFeaturesChat = {
         while (containerEl.nextSibling) {
             containerEl.nextSibling.remove();
         }
+        
+        containerEl.remove();
 
         await this.execute();
     }

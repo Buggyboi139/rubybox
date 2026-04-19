@@ -68,8 +68,9 @@ window.AppImageController = {
             window.AppChatView.renderMessage('user', input, userMsg.id);
 
             if (window.AppState.getHistory().length === 1) {
-                window.AppLLMService.generateTitle(input, convId);
-                await window.AppFeaturesChat.loadConversationList();
+                window.AppLLMService.generateTitle(input, convId).then(() => {
+                    window.AppFeaturesChat.loadConversationList();
+                });
             }
 
             window.AppToasts.show('Generating image...');
@@ -77,7 +78,7 @@ window.AppImageController = {
             const imgResult = await window.AppImageService.generate(input);
             if (imgResult.error) throw imgResult.error;
 
-            const contentPayload = [
+            const contentPayload =[
                 { type: 'text', text: 'Image generated:' },
                 { type: 'image_url', image_url: { url: imgResult.data } }
             ];
@@ -139,7 +140,7 @@ window.AppImageController = {
             const imgResult = await window.AppImageService.generateScenario(sdPrompt);
             if (imgResult.error) throw imgResult.error;
 
-            const contentPayload = [
+            const contentPayload =[
                 { type: 'text', text: `*Scenario Rendered:* ${sdPrompt}` },
                 { type: 'image_url', image_url: { url: imgResult.data } }
             ];
