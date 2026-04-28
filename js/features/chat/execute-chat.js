@@ -1,6 +1,4 @@
 window.AppFeaturesChat = {
-// ...[Retain all other functions as previously established] ...
-
     async loadConversation(convId) {
         const currentId = window.AppState.get('currentConversationId');
         if (currentId !== convId) {
@@ -38,7 +36,7 @@ window.AppFeaturesChat = {
                 let content = msg.content;
                 try { 
                     content = JSON.parse(msg.content); 
-                } catch {
+                } catch (e) {
                 }
                 window.AppState.addMessage({
                     id: msg.id,
@@ -54,7 +52,5 @@ window.AppFeaturesChat = {
 
         window.AppSidebar.setActiveConversation(convId);
         window.AppModals.toggleSidebar(false);
-    },
-
-// ... [Retain all other functions as previously established] ...
+    }
 };
