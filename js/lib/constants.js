@@ -18,15 +18,14 @@ window.AppConfig = {
         ],
         google: [
             { id: 'google/gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview' },
-            { id: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash' },
             { id: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash' }
         ],
         deepseek: [
-            { id: 'deepseek/deepseek-v3.2', label: 'DeepSeek V3.2' }
+            { id: 'deepseek/deepseek-v3.2', label: 'DeepSeek V3.2' },
+            { id: 'deepseek/deepseek-v4', label: 'DeepSeek V4' }
         ],
         minimax: [
             { id: 'minimax/minimax-m2.7', label: 'MiniMax M2.7' },
-            { id: 'minimax/minimax-m2.5', label: 'MiniMax M2.5' }
         ],
         xiaomi: [
             { id: 'xiaomi/mimo-v2-pro', label: 'MiMo-V2-Pro' }
@@ -36,6 +35,9 @@ window.AppConfig = {
         ],
         xai: [
             { id: 'x-ai/grok-4.1-fast', label: 'Grok 4.1 Fast' }
+        ],
+        moonshotai: [
+            { id: 'moonshotai/kimi-k2.6', label: 'Kimi K2.6' }
         ]
     },
     VOICE_OPTIONS: {
