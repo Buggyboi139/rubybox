@@ -198,42 +198,47 @@ window.AppLLMService = {
 
         const sysPrompt = `Role: You are the NSFW Architect, an expert and perverted world-builder and system designer. Your objective is to take a user's seed prompt and construct a highly sexual interactive, lore-dense, and mechanically sound scenario. The output may represent a single complex character, an ensemble cast (e.g., a harem), or a complete open-world RPG framework. Directive: Maximize information density and interactive potential. Zero flowery exposition. Do not write passive history; write active conflicts. Ground the world in sensory details and strict internal logic. Every word should help to fundamentally shape the lewd character or scenario. Output Structure: Whenever the user provides a prompt, you must generate the framework using the following strict categories: 1. Core Premise & Framework 2. Environmental Design (World-Building) 3. Entity/Cast Diagnostics (Character-Building) 4. The Engine (Event Triggers) 5. Point of Entry (The Opening) CRITICAL SYSTEM REQUIREMENT: You MUST output your entire response as a single, valid JSON object. Do not wrap it in markdown code blocks like \`\`\`json. The JSON must exactly match this schema: { "name": "A brutal, concise title for this scenario or character", "avatar_prompt": "A comma-separated list of highly specific visual tags based on the Entity/Environmental design to be fed into a Stable Diffusion image generator (e.g., 1girl, glowing neon, hyper-detailed, specific clothing/anatomy).", "system_prompt": "The complete, detailed text of all 5 categories requested above, cleanly formatted in markdown." }`;
 
-        const result = await this.streamComplete({
-            model: 'deepseek/deepseek-chat',
-            temperature: 0.85,
-            messages: [
-                { role: 'system', content: sysPrompt },
-                { role: 'user', content: userPrompt }
-            ]
-        });
+        return new Promise(async (resolve) => {
+            const result = await this.streamComplete({
+                model: 'deepseek/deepseek-chat',
+                temperature: 0.85,
+                messages: [
+                    { role: 'system', content: sysPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                onComplete: (fullText) => {
+                    try {
+                        let rawText = fullText
+                            .replace(/<think>[\s\S]*?<\/think>/g, '')
+                            .replace(/```json/gi, '')
+                            .replace(/```/g, '')
+                            .trim();
+                            
+                        const startIndex = rawText.indexOf('{');
+                        const endIndex = rawText.lastIndexOf('}');
+                        
+                        if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
+                            rawText = rawText.substring(startIndex, endIndex + 1);
+                        }
 
-        if (result.error) return { data: null, error: result.error };
+                        const profile = JSON.parse(rawText);
+                        resolve({
+                            data: {
+                                name: profile.name.replace(/<[^>]*>?/gm, '').replace(/(\{\{|<\||\|>|\}\})/g, '').trim(),
+                                avatar_prompt: profile.avatar_prompt,
+                                system_prompt: profile.system_prompt.replace(/<[^>]*>?/gm, '').replace(/(\{\{|<\||\|>|\}\})/g, '').trim()
+                            },
+                            error: null
+                        });
+                    } catch (e) {
+                        resolve({ data: null, error: new Error('Failed to parse Architect profile JSON') });
+                    }
+                }
+            });
 
-        try {
-            let rawText = result.data.text
-                .replace(/<think>[\s\S]*?<\/think>/g, '')
-                .replace(/```json/gi, '')
-                .replace(/```/g, '')
-                .trim();
-                
-            const startIndex = rawText.indexOf('{');
-            const endIndex = rawText.lastIndexOf('}');
-            
-            if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
-                rawText = rawText.substring(startIndex, endIndex + 1);
+            if (result.error) {
+                resolve({ data: null, error: result.error });
             }
-
-            const profile = JSON.parse(rawText);
-            return {
-                data: {
-                    name: profile.name.replace(/<[^>]*>?/gm, '').replace(/(\{\{|<\||\|>|\}\})/g, '').trim(),
-                    avatar_prompt: profile.avatar_prompt,
-                    system_prompt: profile.system_prompt.replace(/<[^>]*>?/gm, '').replace(/(\{\{|<\||\|>|\}\})/g, '').trim()
-                },
-                error: null
-            };
-        } catch (e) {
-            return { data: null, error: e };
-        }
+        });
     }
 };
