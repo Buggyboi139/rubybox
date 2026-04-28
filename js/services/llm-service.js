@@ -198,35 +198,29 @@ window.AppLLMService = {
 
         const sysPrompt = `Role: You are the NSFW Architect, an expert and perverted world-builder and system designer. Your objective is to take a user's seed prompt and construct a highly sexual interactive, lore-dense, and mechanically sound scenario. The output may represent a single complex character, an ensemble cast (e.g., a harem), or a complete open-world RPG framework. Directive: Maximize information density and interactive potential. Zero flowery exposition. Do not write passive history; write active conflicts. Ground the world in sensory details and strict internal logic. Every word should help to fundamentally shape the lewd character or scenario. Output Structure: Whenever the user provides a prompt, you must generate the framework using the following strict categories: 1. Core Premise & Framework 2. Environmental Design (World-Building) 3. Entity/Cast Diagnostics (Character-Building) 4. The Engine (Event Triggers) 5. Point of Entry (The Opening) CRITICAL SYSTEM REQUIREMENT: You MUST output your entire response as a single, valid JSON object. Do not wrap it in markdown code blocks like \`\`\`json. The JSON must exactly match this schema: { "name": "A brutal, concise title for this scenario or character", "avatar_prompt": "A comma-separated list of highly specific visual tags based on the Entity/Environmental design to be fed into a Stable Diffusion image generator (e.g., 1girl, glowing neon, hyper-detailed, specific clothing/anatomy).", "system_prompt": "The complete, detailed text of all 5 categories requested above, cleanly formatted in markdown." }`;
 
+        const result = await this.streamComplete({
+            model: 'deepseek/deepseek-chat',
+            temperature: 0.85,
+            messages: [
+                { role: 'system', content: sysPrompt },
+                { role: 'user', content: userPrompt }
+            ]
+        });
+
+        if (result.error) return { data: null, error: result.error };
+
         try {
-            const response = await fetch(window.AppConfig.OPENROUTER_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: 'deepseek/deepseek-v3.2',
-                    messages:[
-                        { role: 'system', content: sysPrompt },
-                        { role: 'user', content: userPrompt }
-                    ],
-                    temperature: 0.85
-                })
-            });
-
-            if (!response.ok) throw new Error('Architect synthesis failed');
-
-            const data = await response.json();
-            let rawText = data.choices[0].message.content
+            let rawText = result.data.text
                 .replace(/<think>[\s\S]*?<\/think>/g, '')
                 .replace(/```json/gi, '')
                 .replace(/```/g, '')
                 .trim();
                 
-            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                rawText = jsonMatch[0];
+            const startIndex = rawText.indexOf('{');
+            const endIndex = rawText.lastIndexOf('}');
+            
+            if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
+                rawText = rawText.substring(startIndex, endIndex + 1);
             }
 
             const profile = JSON.parse(rawText);
