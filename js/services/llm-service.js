@@ -218,10 +218,16 @@ window.AppLLMService = {
             if (!response.ok) throw new Error('Architect synthesis failed');
 
             const data = await response.json();
-            const rawText = data.choices[0].message.content
-                .replace(/```json/g, '')
+            let rawText = data.choices[0].message.content
+                .replace(/<think>[\s\S]*?<\/think>/g, '')
+                .replace(/```json/gi, '')
                 .replace(/```/g, '')
                 .trim();
+                
+            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                rawText = jsonMatch[0];
+            }
 
             const profile = JSON.parse(rawText);
             return {
