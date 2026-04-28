@@ -120,7 +120,7 @@ window.AppLLMService = {
         }
     },
 
-    async generateTitle(firstPrompt, conversationId) {
+    async generateTitle(firstPrompt, conversationId, signal) {
         const apiKey = window.AppConfigLoader.getDecryptedApiKey();
         if (!apiKey) return { error: new Error('No API key') };
 
@@ -138,12 +138,18 @@ window.AppLLMService = {
                         content: `Summarize this into a 3-5 word title. Only output the title: ${firstPrompt}`
                     }],
                     stream: false
-                })
+                }),
+                signal
             });
 
             if (!response.ok) throw new Error('Title generation failed');
 
             const data = await response.json();
+            
+            if (!data.choices || !data.choices.length) {
+                throw new Error('Invalid OpenRouter response format');
+            }
+
             const title = data.choices[0].message.content
                 .replace(/["']/g, '')
                 .trim();
@@ -155,7 +161,7 @@ window.AppLLMService = {
         }
     },
 
-    async synthesizeScenarioPrompt(historyMessages) {
+    async synthesizeScenarioPrompt(historyMessages, signal) {
         const apiKey = window.AppConfigLoader.getDecryptedApiKey();
         if (!apiKey) return { error: new Error('No API key') };
 
@@ -173,18 +179,24 @@ window.AppLLMService = {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'deepseek/deepseek-v3.2',
+                    model: 'deepseek/deepseek-chat',
                     messages:[
                         { role: 'system', content: sysPrompt },
                         { role: 'user', content: chatLog }
                     ],
                     temperature: 0.3
-                })
+                }),
+                signal
             });
 
             if (!response.ok) throw new Error('Scenario synthesis failed');
 
             const data = await response.json();
+            
+            if (!data.choices || !data.choices.length) {
+                throw new Error('Invalid OpenRouter response format');
+            }
+
             const prompt = data.choices[0].message.content.trim();
             return { data: prompt, error: null };
         } catch (e) {
