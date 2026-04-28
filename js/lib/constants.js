@@ -22,7 +22,7 @@ window.AppConfig = {
         ],
         deepseek: [
             { id: 'deepseek/deepseek-v3.2', label: 'DeepSeek V3.2' },
-            { id: 'deepseek/deepseek-v4', label: 'DeepSeek V4' }
+            { id: 'deepseek/deepseek-v4-pro', label: 'DeepSeek V4 Pro' }
         ],
         minimax: [
             { id: 'minimax/minimax-m2.7', label: 'MiniMax M2.7' },
