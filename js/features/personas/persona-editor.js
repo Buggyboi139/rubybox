@@ -72,7 +72,7 @@ window.AppFeaturesPersonas = {
         const ui = window.AppUI.get();
         const name = ui.newCharName.value.trim();
         const prompt = ui.newCharPrompt.value.trim();
-        const avatar = window.AppState.get('newCharacterAvatarBase64') || '';
+        let avatarData = window.AppState.get('newCharacterAvatarBase64');
         const editingId = window.AppState.get('editingCharacterId');
 
         if (!name || !prompt) {
@@ -80,8 +80,22 @@ window.AppFeaturesPersonas = {
             return;
         }
 
+        let finalAvatarUrl = '';
+        if (avatarData) {
+            if (avatarData.startsWith('data:image')) {
+                const uploadResult = await window.AppStorageService.uploadImage(avatarData, 'avatar');
+                if (uploadResult.error) {
+                    window.AppToasts.show('Failed to upload avatar: ' + uploadResult.error.message, 'error');
+                    return;
+                }
+                finalAvatarUrl = uploadResult.data;
+            } else {
+                finalAvatarUrl = avatarData;
+            }
+        }
+
         if (editingId) {
-            const { error } = await window.AppCharactersService.update(editingId, { name, avatar, system_prompt: prompt });
+            const { error } = await window.AppCharactersService.update(editingId, { name, avatar: finalAvatarUrl, system_prompt: prompt });
             if (error) {
                 window.AppToasts.show(error.message, 'error');
                 return;
@@ -89,7 +103,7 @@ window.AppFeaturesPersonas = {
 
             const active = window.AppState.get('activeCharacter');
             if (active?.id === editingId) {
-                window.AppState.set('activeCharacter', { ...active, name, avatar, system_prompt: prompt });
+                window.AppState.set('activeCharacter', { ...active, name, avatar: finalAvatarUrl, system_prompt: prompt });
                 window.AppCharacterView.renderActiveCharacter();
             }
 
@@ -98,7 +112,7 @@ window.AppFeaturesPersonas = {
             const currentMode = window.AppState.get('currentMode') || 'chat';
             const { error } = await window.AppCharactersService.create({
                 name,
-                avatar,
+                avatar: finalAvatarUrl,
                 system_prompt: prompt,
                 mode: currentMode
             });
