@@ -58,7 +58,7 @@
                 <h3 class="header-small">Recent Chats</h3>
                 <button id="new-chat-btn" class="secondary-btn new-chat-small">+ New</button>
             </div>
-            <input type="text" id="chat-search" class="glass-input small-input mb-10 shrink-0" placeholder="Search chats...">
+            <input type="text" id="chat-search" class="glass-input small-input mb-10 shrink-0" placeholder="Search chats..." autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true">
             <div id="conversations-list" class="conversations-list-container"></div>
         </div>
         <div id="active-char-display" class="hidden active-char-container">
@@ -111,17 +111,19 @@
                         </optgroup>
                         <optgroup label="Google">
                             <option value="google/gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                            <option value="google/gemini-3-flash-preview">Gemini 3 Flash</option>
                             <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
                         </optgroup>
                         <optgroup label="DeepSeek">
                             <option value="deepseek/deepseek-v3.2" selected>DeepSeek V3.2</option>
-                            <option value="deepseek/deepseek-v4-pro">DeepSeek v4 Pro</option>
+                            <option value="deepseek/deepseek-v4">DeepSeek V4</option>
                         </optgroup>
                         <optgroup label="Moonshot AI">
                             <option value="moonshotai/kimi-k2.6">Kimi K2.6</option>
                         </optgroup>
                         <optgroup label="MiniMax">
                             <option value="minimax/minimax-m2.7">MiniMax M2.7</option>
+                            <option value="minimax/minimax-m2.5">MiniMax M2.5</option>
                         </optgroup>
                         <optgroup label="Xiaomi">
                             <option value="xiaomi/mimo-v2-pro">MiMo-V2-Pro</option>
