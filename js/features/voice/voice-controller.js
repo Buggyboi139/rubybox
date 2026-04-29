@@ -19,6 +19,7 @@ window.AppVoiceManager = {
     onTranscription: null,
     onStateChange: null,
     nativeRecognition: null,
+    visualizerId: null,
 
     init(transcriptionCallback, stateCallback) {
         this.onTranscription = transcriptionCallback;
@@ -104,6 +105,65 @@ window.AppVoiceManager = {
         }
     },
 
+    _startVisualizer() {
+        if (this.visualizerId) return;
+        const canvas = document.getElementById('voice-visualizer');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        
+        const draw = () => {
+            this.visualizerId = requestAnimationFrame(draw);
+            
+            // Match internal dimensions to actual display layout to prevent stretching
+            if (canvas.width !== canvas.clientWidth) canvas.width = canvas.clientWidth;
+            if (canvas.height !== canvas.clientHeight) canvas.height = canvas.clientHeight;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let activeAnalyser = null;
+            if (this.currentState === 'listening' || this.currentState === 'thinking') {
+                activeAnalyser = this.micAnalyser;
+                ctx.strokeStyle = '#06b6d4'; // Cyan for user
+            } else if (this.currentState === 'speaking') {
+                activeAnalyser = this.analyser;
+                ctx.strokeStyle = '#10b981'; // Green for AI
+            }
+            
+            // Draw baseline if waiting/idle/no active analyser
+            if (!activeAnalyser) {
+                ctx.beginPath();
+                ctx.moveTo(0, canvas.height / 2);
+                ctx.lineTo(canvas.width, canvas.height / 2);
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                return;
+            }
+            
+            const bufferLength = activeAnalyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            activeAnalyser.getByteTimeDomainData(dataArray);
+            
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            
+            const sliceWidth = canvas.width * 1.0 / bufferLength;
+            let x = 0;
+            
+            for (let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = v * canvas.height / 2;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+                x += sliceWidth;
+            }
+            
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+        };
+        draw();
+    },
+
     async startListening() {
         this.sessionId++;
         this._resetTTS();
@@ -117,6 +177,7 @@ window.AppVoiceManager = {
             this.micAnalyser = this.audioContext.createAnalyser();
             this.micAnalyser.smoothingTimeConstant = 0.5;
             this.micAnalyser.fftSize = 1024;
+            this._startVisualizer();
         }
 
         if (this.audioContext.state === 'suspended') {
@@ -203,9 +264,14 @@ window.AppVoiceManager = {
 
     markStreamComplete() {
         this.isStreamComplete = true;
-        if (!this.isPlaying && this.ttsQueue.length > 0) {
-            this.isPlaying = true;
-            this._processQueue();
+        if (!this.isPlaying) {
+            if (this.ttsQueue.length > 0) {
+                this.isPlaying = true;
+                this._processQueue();
+            } else {
+                // Return control back if the response stripped out all speech/text
+                this._checkConversationTurn();
+            }
         }
     },
 
@@ -276,6 +342,11 @@ window.AppVoiceManager = {
 
     _scheduleAudio(buffer, delay) {
         if (!this.audioContext) return;
+        
+        // Wake context if the browser suspended it aggressively
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
 
         const source = this.audioContext.createBufferSource();
         source.buffer = buffer;
@@ -321,6 +392,10 @@ window.AppVoiceManager = {
         if (this.micStream) {
             this.micStream.getTracks().forEach(t => t.stop());
             this.micStream = null;
+        }
+        if (this.visualizerId) {
+            cancelAnimationFrame(this.visualizerId);
+            this.visualizerId = null;
         }
         this._resetTTS();
         this._changeState('idle');
