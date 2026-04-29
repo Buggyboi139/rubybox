@@ -54,7 +54,9 @@ const API_PATTERNS = [
     'supabase',
     'openrouter',
     'texttospeech.googleapis',
-    'pollinations'
+    'pollinations',
+    'huggingface.co',
+    'jsdelivr.net'
 ];
 
 function shouldBypassCache(request) {
@@ -63,27 +65,18 @@ function shouldBypassCache(request) {
 }
 
 self.addEventListener('install', event => {
-    console.log('[ServiceWorker] Installing...');
-    
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
-                console.log('[ServiceWorker] Caching static assets');
                 return cache.addAll(STATIC_ASSETS);
             })
             .then(() => {
-                console.log('[ServiceWorker] Skip waiting');
                 return self.skipWaiting();
-            })
-            .catch(error => {
-                console.error('[ServiceWorker] Install failed:', error);
             })
     );
 });
 
 self.addEventListener('activate', event => {
-    console.log('[ServiceWorker] Activating...');
-    
     event.waitUntil(
         caches.keys()
             .then(cacheNames => {
@@ -91,17 +84,12 @@ self.addEventListener('activate', event => {
                     cacheNames
                         .filter(name => name !== CACHE_NAME)
                         .map(name => {
-                            console.log('[ServiceWorker] Deleting old cache:', name);
                             return caches.delete(name);
                         })
                 );
             })
             .then(() => {
-                console.log('[ServiceWorker] Claiming clients');
                 return self.clients.claim();
-            })
-            .catch(error => {
-                console.error('[ServiceWorker] Activation failed:', error);
             })
     );
 });
@@ -135,20 +123,14 @@ self.addEventListener('fetch', event => {
                         caches.open(CACHE_NAME)
                             .then(cache => {
                                 cache.put(request, responseToCache);
-                            })
-                            .catch(error => {
-                                console.error('[ServiceWorker] Cache put failed:', error);
                             });
 
                         return networkResponse;
                     })
                     .catch(error => {
-                        console.error('[ServiceWorker] Fetch failed:', error);
-                        
                         if (request.destination === 'document') {
                             return caches.match('/index.html');
                         }
-                        
                         throw error;
                     });
             })
@@ -156,8 +138,6 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('sync', event => {
-    console.log('[ServiceWorker] Background sync:', event.tag);
-    
     if (event.tag === 'sync-messages') {
         event.waitUntil(syncMessages());
     }
@@ -172,14 +152,11 @@ async function syncMessages() {
                 timestamp: Date.now()
             });
         });
-    } catch (error) {
-        console.error('[ServiceWorker] Message sync failed:', error);
-    }
+    } catch (error) {}
 }
 
 self.addEventListener('push', event => {
     if (!event.data) {
-        console.log('[ServiceWorker] Push event with no data');
         return;
     }
 
@@ -195,14 +172,10 @@ self.addEventListener('push', event => {
                 data: data.data || {}
             })
         );
-    } catch (error) {
-        console.error('[ServiceWorker] Push notification error:', error);
-    }
+    } catch (error) {}
 });
 
 self.addEventListener('notificationclick', event => {
-    console.log('[ServiceWorker] Notification click:', event.notification.tag);
-    
     event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true })
             .then(clients => {
@@ -210,9 +183,6 @@ self.addEventListener('notificationclick', event => {
                     return clients[0].focus();
                 }
                 return self.clients.openWindow('/');
-            })
-            .catch(error => {
-                console.error('[ServiceWorker] Notification click failed:', error);
             })
     );
 });

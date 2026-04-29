@@ -1,11 +1,12 @@
 window.AppTTSService = {
-    async synthesize(text, voiceName) {
+    async synthesize(text, voiceName = 'en-US-Journey-F') {
         const ttsKey = window.AppState.get('decryptedTtsKey');
         if (!ttsKey) {
             return { data: null, error: new Error('Google TTS API key not available') };
         }
 
-        const langCode = voiceName.substring(0, 5);
+        const safeVoiceName = voiceName || 'en-US-Journey-F';
+        const langCode = safeVoiceName.substring(0, 5);
 
         try {
             const response = await fetch(
@@ -19,7 +20,7 @@ window.AppTTSService = {
                         input: { text },
                         voice: {
                             languageCode: langCode,
-                            name: voiceName
+                            name: safeVoiceName
                         },
                         audioConfig: {
                             audioEncoding: 'MP3'

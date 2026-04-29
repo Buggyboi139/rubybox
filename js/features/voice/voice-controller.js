@@ -114,7 +114,6 @@ window.AppVoiceManager = {
         const draw = () => {
             this.visualizerId = requestAnimationFrame(draw);
             
-            // Match internal dimensions to actual display layout to prevent stretching
             if (canvas.width !== canvas.clientWidth) canvas.width = canvas.clientWidth;
             if (canvas.height !== canvas.clientHeight) canvas.height = canvas.clientHeight;
             
@@ -123,13 +122,12 @@ window.AppVoiceManager = {
             let activeAnalyser = null;
             if (this.currentState === 'listening' || this.currentState === 'thinking') {
                 activeAnalyser = this.micAnalyser;
-                ctx.strokeStyle = '#06b6d4'; // Cyan for user
+                ctx.strokeStyle = '#06b6d4';
             } else if (this.currentState === 'speaking') {
                 activeAnalyser = this.analyser;
-                ctx.strokeStyle = '#10b981'; // Green for AI
+                ctx.strokeStyle = '#10b981';
             }
             
-            // Draw baseline if waiting/idle/no active analyser
             if (!activeAnalyser) {
                 ctx.beginPath();
                 ctx.moveTo(0, canvas.height / 2);
@@ -269,7 +267,6 @@ window.AppVoiceManager = {
                 this.isPlaying = true;
                 this._processQueue();
             } else {
-                // Return control back if the response stripped out all speech/text
                 this._checkConversationTurn();
             }
         }
@@ -301,7 +298,7 @@ window.AppVoiceManager = {
             return;
         }
 
-        const ui = window.AppUI.get();
+        const ui = window.AppUI ? window.AppUI.get() : {};
         const selectedVoice = ui.googleVoiceSelect?.value || 'en-US-Journey-F';
         const langCode = selectedVoice.substring(0, 5);
 
@@ -323,7 +320,11 @@ window.AppVoiceManager = {
                 }
             );
 
-            if (!response.ok) throw new Error('API Error');
+            if (!response.ok) {
+                const errData = await response.text();
+                throw new Error(`API Error: ${response.status} - ${errData}`);
+            }
+
             const data = await response.json();
 
             if (data.audioContent && activeSessionId === this.sessionId) {
@@ -332,7 +333,8 @@ window.AppVoiceManager = {
                 this._scheduleAudio(decodedBuffer, item.delay);
             }
         } catch (e) {
-            console.error('TTS error:', e);
+            // Requeue item to prevent silent skipping if network blips
+            this.ttsQueue.unshift(item);
         } finally {
             this.isGenerating = false;
             if (activeSessionId === this.sessionId) this._processQueue();
@@ -343,7 +345,6 @@ window.AppVoiceManager = {
     _scheduleAudio(buffer, delay) {
         if (!this.audioContext) return;
         
-        // Wake context if the browser suspended it aggressively
         if (this.audioContext.state === 'suspended') {
             this.audioContext.resume();
         }
