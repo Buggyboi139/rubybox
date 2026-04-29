@@ -293,7 +293,7 @@ window.AppVoiceManager = {
 
         const ttsKey = window.AppState.get('decryptedTtsKey');
         if (!ttsKey) {
-            window.AppToasts.show('Missing Google TTS API Key', 'error');
+            if (window.AppToasts) window.AppToasts.show('Missing Google TTS API Key', 'error');
             this.stopAll();
             return;
         }
@@ -333,11 +333,18 @@ window.AppVoiceManager = {
                 this._scheduleAudio(decodedBuffer, item.delay);
             }
         } catch (e) {
-            // Requeue item to prevent silent skipping if network blips
-            this.ttsQueue.unshift(item);
+            if (e.message.includes('403')) {
+                if (window.AppToasts) window.AppToasts.show('Google TTS API Key is invalid.', 'error');
+                this.stopAll();
+                return;
+            }
         } finally {
             this.isGenerating = false;
-            if (activeSessionId === this.sessionId) this._processQueue();
+            if (activeSessionId === this.sessionId) {
+                setTimeout(() => {
+                    this._processQueue();
+                }, 50);
+            }
             this._checkConversationTurn();
         }
     },
